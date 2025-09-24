@@ -1,0 +1,208 @@
+{% extends "base.html" %}
+
+{% block title %}Request Service - ZetsuServ{% endblock %}
+
+{% block content %}
+<section class="request-form-section">
+    <div class="container">
+        <div class="form-wrapper">
+            <div class="form-header">
+                <h1 class="form-title">Request Our Service</h1>
+                <p class="form-subtitle">Fill out the form below and we'll get back to you within 24 hours</p>
+            </div>
+            
+            <form method="POST" action="{{ url_for('public.request_service') }}" enctype="multipart/form-data" class="request-form" id="requestForm">
+                {{ form.hidden_tag() }}
+                
+                <!-- Client Information -->
+                <div class="form-section">
+                    <h3 class="form-section-title">Contact Information</h3>
+                    
+                    <div class="form-group">
+                        {{ form.client_name.label }}
+                        {{ form.client_name(class="form-control" + (" is-invalid" if form.client_name.errors else "")) }}
+                        {% if form.client_name.errors %}
+                            <div class="invalid-feedback">
+                                {% for error in form.client_name.errors %}
+                                    {{ error }}
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            {{ form.client_email.label }}
+                            {{ form.client_email(class="form-control" + (" is-invalid" if form.client_email.errors else "")) }}
+                            {% if form.client_email.errors %}
+                                <div class="invalid-feedback">
+                                    {% for error in form.client_email.errors %}
+                                        {{ error }}
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="form-group">
+                            {{ form.phone.label }}
+                            {{ form.phone(class="form-control" + (" is-invalid" if form.phone.errors else "")) }}
+                            {% if form.phone.errors %}
+                                <div class="invalid-feedback">
+                                    {% for error in form.phone.errors %}
+                                        {{ error }}
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Project Information -->
+                <div class="form-section">
+                    <h3 class="form-section-title">Project Details</h3>
+                    
+                    <div class="form-group">
+                        {{ form.project_title.label }}
+                        {{ form.project_title(class="form-control" + (" is-invalid" if form.project_title.errors else "")) }}
+                        {% if form.project_title.errors %}
+                            <div class="invalid-feedback">
+                                {% for error in form.project_title.errors %}
+                                    {{ error }}
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            {{ form.project_type.label }}
+                            {{ form.project_type(class="form-control" + (" is-invalid" if form.project_type.errors else "")) }}
+                            {% if form.project_type.errors %}
+                                <div class="invalid-feedback">
+                                    {% for error in form.project_type.errors %}
+                                        {{ error }}
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="form-group">
+                            {{ form.pages_required.label }}
+                            {{ form.pages_required(class="form-control" + (" is-invalid" if form.pages_required.errors else ""), min="1", max="100") }}
+                            {% if form.pages_required.errors %}
+                                <div class="invalid-feedback">
+                                    {% for error in form.pages_required.errors %}
+                                        {{ error }}
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        {{ form.budget.label }}
+                        {{ form.budget(class="form-control" + (" is-invalid" if form.budget.errors else "")) }}
+                        {% if form.budget.errors %}
+                            <div class="invalid-feedback">
+                                {% for error in form.budget.errors %}
+                                    {{ error }}
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                    </div>
+                    
+                    <div class="form-group">
+                        {{ form.details.label }}
+                        {{ form.details(class="form-control" + (" is-invalid" if form.details.errors else ""), rows="6", placeholder="Please provide detailed information about your project requirements, goals, and any specific features you need...") }}
+                        {% if form.details.errors %}
+                            <div class="invalid-feedback">
+                                {% for error in form.details.errors %}
+                                    {{ error }}
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                        <small class="form-text">Minimum 20 characters required</small>
+                    </div>
+                    
+                    <div class="form-group">
+                        {{ form.files.label }}
+                        <div class="file-upload-wrapper">
+                            {{ form.files(class="form-control-file", multiple=True, accept=".png,.jpg,.jpeg,.gif,.pdf,.zip,.doc,.docx") }}
+                            <p class="file-upload-help">
+                                You can upload multiple files. Accepted formats: PNG, JPG, GIF, PDF, ZIP, DOC, DOCX (Max 16MB total)
+                            </p>
+                        </div>
+                        {% if form.files.errors %}
+                            <div class="invalid-feedback d-block">
+                                {% for error in form.files.errors %}
+                                    {{ error }}
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+                
+                <!-- Submit Button -->
+                <div class="form-actions">
+                    {{ form.submit(class="btn btn-primary btn-lg") }}
+                    <p class="form-note">By submitting this form, you agree to be contacted regarding your project request.</p>
+                </div>
+            </form>
+        </div>
+    </div>
+</section>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Client-side form validation
+    document.getElementById('requestForm').addEventListener('submit', function(e) {
+        let isValid = true;
+        
+        // Check required fields
+        const requiredFields = this.querySelectorAll('[required]');
+        requiredFields.forEach(field => {
+            if (!field.value.trim()) {
+                field.classList.add('is-invalid');
+                isValid = false;
+            } else {
+                field.classList.remove('is-invalid');
+            }
+        });
+        
+        // Validate email
+        const email = this.querySelector('#client_email');
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        if (email && !emailRegex.test(email.value)) {
+            email.classList.add('is-invalid');
+            isValid = false;
+        }
+        
+        // Validate phone
+        const phone = this.querySelector('#phone');
+        if (phone && phone.value.length < 10) {
+            phone.classList.add('is-invalid');
+            isValid = false;
+        }
+        
+        // Validate details length
+        const details = this.querySelector('#details');
+        if (details && details.value.trim().length < 20) {
+            details.classList.add('is-invalid');
+            isValid = false;
+        }
+        
+        if (!isValid) {
+            e.preventDefault();
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+    });
+    
+    // Remove error styling on input
+    document.querySelectorAll('.form-control').forEach(input => {
+        input.addEventListener('input', function() {
+            this.classList.remove('is-invalid');
+        });
+    });
+</script>
+{% endblock %}

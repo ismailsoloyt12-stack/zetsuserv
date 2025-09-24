@@ -1,0 +1,511 @@
+<!-- AI Chatbot Assistant -->
+<div id="chatbot-container">
+    <!-- Chat Launcher Button -->
+    <div id="chat-launcher" class="fixed bottom-5 right-5 z-40 cursor-pointer">
+        <div class="bg-blue-600 text-white w-16 h-16 rounded-full flex items-center justify-center shadow-xl hover:scale-110 transition-transform">
+            <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+            </svg>
+        </div>
+    </div>
+
+    <!-- Chat Window -->
+    <div id="chat-window" class="fixed bottom-24 right-5 w-[90vw] max-w-md h-[70vh] max-h-[600px] bg-white rounded-2xl shadow-2xl z-50 flex-col opacity-0 transform translate-y-4 pointer-events-none" style="display: flex;">
+        
+        <div class="bg-slate-800 text-white p-4 rounded-t-2xl flex justify-between items-center flex-shrink-0">
+            <div>
+                <h3 class="text-lg font-semibold">ZetsuServ Assistant</h3>
+                <p class="text-sm text-slate-300">Powered by AI</p>
+            </div>
+            <button id="close-chat" class="text-slate-300 hover:text-white">
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <line x1="18" y1="6" x2="6" y2="18"></line>
+                    <line x1="6" y1="6" x2="18" y2="18"></line>
+                </svg>
+            </button>
+        </div>
+
+        <div id="chat-messages" class="chatbot-messages flex-grow p-4 space-y-4 overflow-y-auto">
+            <!-- Messages will be dynamically inserted here -->
+        </div>
+        
+        <!-- Quick Actions -->
+        <div id="quick-actions" class="px-4 py-2 border-t border-gray-200" style="display: none;">
+            <div class="text-xs text-gray-500 mb-2">Quick Actions:</div>
+            <div class="flex flex-wrap gap-2">
+                <button onclick="sendQuickMessage('I need a website')" class="px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm hover:bg-blue-200 transition">
+                    🌐 I need a website
+                </button>
+                <button onclick="sendQuickMessage('I want a landing page')" class="px-3 py-1 bg-green-100 text-green-700 rounded-full text-sm hover:bg-green-200 transition">
+                    📄 Landing page
+                </button>
+                <button onclick="sendQuickMessage('I need an e-commerce site')" class="px-3 py-1 bg-purple-100 text-purple-700 rounded-full text-sm hover:bg-purple-200 transition">
+                    🛒 E-commerce
+                </button>
+            </div>
+        </div>
+
+        <div id="typing-indicator" class="p-4 text-sm text-slate-500 items-center" style="display: none;">
+            <span id="indicator-text" class="mr-2"></span>
+            <div class="typing-dots">
+                <span></span><span></span><span></span>
+            </div>
+        </div>
+
+        <div class="border-t border-slate-200 p-4 flex-shrink-0">
+            <form id="chat-form" class="flex items-center space-x-3">
+                <input type="text" id="chat-input" placeholder="Ask about our services or request a website..." 
+                       class="w-full px-4 py-2 border border-slate-300 rounded-full focus:outline-none focus:ring-2 focus:ring-blue-500 transition-shadow" 
+                       autocomplete="off">
+                <button type="submit" class="bg-blue-600 text-white rounded-full p-3 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors flex-shrink-0">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="22" y1="2" x2="11" y2="13"></line>
+                        <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+                    </svg>
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<style>
+    .chatbot-messages::-webkit-scrollbar { width: 6px; }
+    .chatbot-messages::-webkit-scrollbar-track { background: #f1f5f9; }
+    .chatbot-messages::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 3px; }
+    .chatbot-messages::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+    .chat-window { transition: opacity 0.3s ease-in-out, transform 0.3s ease-in-out; }
+    
+    .typing-dots span {
+        display: inline-block;
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background-color: #94a3b8;
+        animation: typing-blink 1.4s infinite both;
+        margin: 0 1px;
+    }
+    .typing-dots span:nth-child(2) { animation-delay: 0.2s; }
+    .typing-dots span:nth-child(3) { animation-delay: 0.4s; }
+    
+    @keyframes typing-blink {
+        0%, 100% { opacity: 0.2; }
+        20% { opacity: 1; }
+    }
+    
+    .blinking-cursor {
+        display: inline-block;
+        width: 8px;
+        height: 1.2em;
+        background-color: #334155;
+        animation: cursor-blink 1s infinite;
+        margin-left: 2px;
+        vertical-align: middle;
+    }
+    
+    @keyframes cursor-blink {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0; }
+    }
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+    const chatLauncher = document.getElementById('chat-launcher');
+    const chatWindow = document.getElementById('chat-window');
+    const closeChatBtn = document.getElementById('close-chat');
+    const chatForm = document.getElementById('chat-form');
+    const chatInput = document.getElementById('chat-input');
+    const chatMessages = document.getElementById('chat-messages');
+    const typingIndicator = document.getElementById('typing-indicator');
+    const indicatorText = document.getElementById('indicator-text');
+    
+    let isChatOpen = false;
+    let isBotTyping = false;
+    let chatHistory = [];
+    let collectedOrderData = {};
+    
+    // Get current user email if logged in
+    const current_user_email = {% if current_user.is_authenticated and current_user.email %}'{{ current_user.email }}'{% else %}null{% endif %};
+
+    // Gemini API Configuration
+    const API_KEY = "AIzaSyBu02TleiQUg4zWm6FTPwfNasAWlSwYpWw";
+    const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${API_KEY}`;
+    
+    const SYSTEM_PROMPT = `You are ZetsuServ's intelligent AI assistant. Be natural, conversational, and smart.
+
+IMPORTANT CONTEXT:
+${current_user_email ? `The user is already logged in with email: ${current_user_email}` : 'The user is not logged in.'}
+
+IMPORTANT RULES:
+1. When someone says they want to order/build a website, DON'T ask many questions.
+2. Be smart - extract information from what they already told you.
+3. If user is logged in, DON'T ASK FOR EMAIL - you already have it!
+4. Submit orders QUICKLY with minimal back-and-forth.
+
+WHEN SOMEONE WANTS TO ORDER:
+- If they say "I want a website" or similar:
+  * If logged in: Immediately confirm and submit the order
+  * If not logged in: Ask ONLY for email
+- Extract what you can from their message:
+  * If they mention their business type, use that as project title
+  * If they say "landing page" use type: "landing"
+  * If they say "e-commerce" or "shop" use type: "ecommerce" 
+  * Otherwise use type: "business"
+  * Use reasonable defaults (5 pages, $1000-5000 budget)
+- Submit format:
+[ACTION:SUBMIT_ORDER_V1]{"name":"Client", "email":"${current_user_email || 'their_email'}", "phone":"To be provided", "title":"their_project", "type":"business", "pages":"5", "budget":"$1000-5000", "details":"what_they_said"}
+
+EXAMPLE FOR LOGGED IN USER:
+User: "I need a website for my restaurant"
+You: "Perfect! I'll submit your restaurant website order right away using your account email."
+[ACTION:SUBMIT_ORDER_V1]{"name":"User", "email":"${current_user_email}", "phone":"To be provided", "title":"Restaurant Website", "type":"business", "pages":"5", "budget":"$1000-5000", "details":"Client needs a website for their restaurant"}
+
+EXAMPLE FOR GUEST:
+User: "I need a website for my restaurant"
+You: "Excellent! I'll help you create a website for your restaurant. Just need your email to send the order confirmation."
+User: "john@email.com"
+You: [ACTION:SUBMIT_ORDER_V1]{"name":"John", "email":"john@email.com", "phone":"To be provided", "title":"Restaurant Website", "type":"business", "pages":"5", "budget":"$1000-5000", "details":"Client needs a website for their restaurant"}
+
+BE SMART:
+- Don't ask questions if you can infer the answer
+- Use defaults for non-critical information
+- Submit orders quickly
+- Be helpful but efficient
+- Act like a smart AI, not a form-filling robot`;
+
+    /**
+     * Submit order to backend
+     */
+    async function submitOrderToBackend(orderDetails) {
+        try {
+            console.log("Submitting order to backend:", orderDetails);
+            
+            const response = await fetch('/api/chatbot-submit-order', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: JSON.stringify(orderDetails)
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                console.log("Order successfully submitted!", data);
+                
+                // Create a special success message based on queue status
+                setTimeout(() => {
+                    const messageWrapper = document.createElement('div');
+                    messageWrapper.className = 'flex justify-start';
+                    const messageElement = document.createElement('div');
+                    
+                    // Check if order is in queue or active
+                    if (data.is_active === false && data.queue_position > 0) {
+                        // ORDER IN QUEUE - No tracking code yet
+                        messageElement.className = 'max-w-xs md:max-w-sm px-4 py-2 rounded-2xl shadow-sm bg-yellow-50 text-slate-800 rounded-bl-lg';
+                        
+                        messageElement.innerHTML = `
+                            <div class="space-y-2">
+                                <div class="font-semibold text-yellow-700">⏳ Order Submitted - In Queue!</div>
+                                <div class="text-sm">
+                                    <div>📋 <strong>Order ID:</strong> #${String(data.order_id).padStart(6, '0')}</div>
+                                    <div class="mt-2">
+                                        🔢 <strong>Queue Position:</strong> #${data.queue_position}
+                                    </div>
+                                    <div class="mt-1">
+                                        👥 <strong>Orders ahead:</strong> ${data.orders_ahead}
+                                    </div>
+                                </div>
+                                <div class="text-sm bg-yellow-100 p-2 rounded mt-3">
+                                    <strong>Why waiting?</strong> ${data.orders_ahead > 0 ? data.orders_ahead + ' customer(s) submitted before you.' : 'Processing previous orders.'} We handle orders one at a time to ensure quality.
+                                </div>
+                                <div class="text-sm text-gray-600 mt-3">
+                                    📧 <strong>You'll receive an email with your tracking code when it's your turn!</strong>
+                                </div>
+                                <div class="text-sm mt-2">
+                                    <a href="/queue-status/${data.order_id}" target="_blank" class="text-blue-600 hover:underline">
+                                        View Queue Status →
+                                    </a>
+                                </div>
+                            </div>
+                        `;
+                    } else {
+                        // ORDER ACTIVE - Has tracking code
+                        messageElement.className = 'max-w-xs md:max-w-sm px-4 py-2 rounded-2xl shadow-sm bg-green-50 text-slate-800 rounded-bl-lg';
+                        
+                        messageElement.innerHTML = `
+                            <div class="space-y-2">
+                                <div class="font-semibold text-green-700">🎉 Great News - You're First!</div>
+                                <div class="text-sm">
+                                    <div>📋 <strong>Order ID:</strong> #${String(data.order_id).padStart(6, '0')}</div>
+                                    <div class="mt-2">
+                                        🔗 <strong>Tracking Code:</strong>
+                                        <div class="mt-1">
+                                            <button onclick="copyTrackingCode('${data.tracking_code}')" 
+                                                    class="inline-flex items-center px-3 py-1 bg-blue-100 hover:bg-blue-200 text-blue-700 rounded-md text-sm font-mono transition-colors cursor-pointer">
+                                                ${data.tracking_code}
+                                                <svg class="ml-2 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3"></path>
+                                                </svg>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="text-sm text-gray-600 mt-3">
+                                    ✅ Your order is active! Work begins immediately.
+                                </div>
+                                <div class="text-sm mt-2">
+                                    <a href="/track/${data.tracking_code}" target="_blank" class="text-blue-600 hover:underline">
+                                        View Order Status →
+                                    </a>
+                                </div>
+                            </div>
+                        `;
+                    }
+                    
+                    messageWrapper.appendChild(messageElement);
+                    chatMessages.appendChild(messageWrapper);
+                    smartScrollToBottom();
+                    
+                    // Also send a follow-up message
+                    setTimeout(() => {
+                        if (data.message) {
+                            addBotMessageWithTypingEffect(data.message, 50);
+                        }
+                        setTimeout(() => {
+                            addBotMessageWithTypingEffect("Is there anything else I can help you with? 😊", 50);
+                        }, 1500);
+                    }, 500);
+                }, 500);
+                
+                return true;
+            } else {
+                console.error("Failed to submit order:", response.status);
+                return false;
+            }
+        } catch (error) {
+            console.error("Error submitting order:", error);
+            return false;
+        }
+    }
+
+    async function callGeminiAPI() {
+        try {
+            const payload = {
+                contents: chatHistory,
+                systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
+                generationConfig: {
+                    temperature: 0.7,
+                    maxOutputTokens: 1024,
+                }
+            };
+            
+            const response = await fetch(API_URL, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            
+            if (!response.ok) {
+                const errorData = await response.json();
+                console.error("API Error:", errorData);
+                throw new Error(`API error: ${response.statusText}`);
+            }
+            
+            const result = await response.json();
+            if (result.candidates && result.candidates.length > 0) {
+                return result.candidates[0].content.parts[0].text;
+            } else if (result.promptFeedback && result.promptFeedback.blockReason) {
+                return `I apologize, but I can't respond to that. Please ask about our web development services.`;
+            }
+            return "I'm sorry, I couldn't generate a response. Please try again.";
+        } catch (error) {
+            console.error("Gemini API call failed:", error);
+            // Fallback responses
+            const fallbackResponses = [
+                "I'm here to help you create an amazing website! What kind of website are you looking for?",
+                "We offer professional web development services. Would you like to submit a project request?",
+                "Tell me about your website needs, and I'll help you get started right away!"
+            ];
+            return fallbackResponses[Math.floor(Math.random() * fallbackResponses.length)];
+        }
+    }
+    
+    const smartScrollToBottom = () => {
+        const threshold = 100;
+        const isScrolledToBottom = chatMessages.scrollHeight - chatMessages.clientHeight <= chatMessages.scrollTop + threshold;
+        if (isScrolledToBottom) {
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+    };
+
+    const toggleChatWindow = () => {
+        isChatOpen = !isChatOpen;
+        chatWindow.style.opacity = isChatOpen ? '1' : '0';
+        chatWindow.style.transform = isChatOpen ? 'translateY(0)' : 'translateY(1rem)';
+        chatWindow.style.pointerEvents = isChatOpen ? 'auto' : 'none';
+        
+        const quickActions = document.getElementById('quick-actions');
+        if (quickActions) {
+            quickActions.style.display = isChatOpen ? 'block' : 'none';
+        }
+        
+        if (isChatOpen && chatHistory.length === 0) {
+            const firstMessage = "👋 Hi! I'm ZetsuServ AI. Need a website? Just tell me what you want and I'll submit your order instantly! 🚀";
+            addBotMessageWithTypingEffect(firstMessage, 500);
+            chatHistory.push({ role: 'model', parts: [{ text: firstMessage }] });
+        }
+    };
+    
+    // Send quick message
+    window.sendQuickMessage = function(message) {
+        if (isBotTyping) return;
+        appendUserMessage(message);
+        handleBotResponse();
+    };
+    
+    // Copy tracking code to clipboard
+    window.copyTrackingCode = function(code) {
+        // Create a temporary textarea element
+        const textarea = document.createElement('textarea');
+        textarea.value = code;
+        textarea.style.position = 'fixed';
+        textarea.style.opacity = '0';
+        document.body.appendChild(textarea);
+        
+        // Select and copy
+        textarea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textarea);
+        
+        // Show success message
+        const button = event.currentTarget;
+        const originalContent = button.innerHTML;
+        button.innerHTML = `
+            <span class="text-green-600">Copied!</span>
+            <svg class="ml-1 w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+            </svg>
+        `;
+        
+        setTimeout(() => {
+            button.innerHTML = originalContent;
+        }, 2000);
+    };
+
+    const appendUserMessage = (text) => {
+        chatHistory.push({ role: 'user', parts: [{ text }] });
+        const messageWrapper = document.createElement('div');
+        messageWrapper.className = 'flex justify-end';
+        messageWrapper.innerHTML = `<div class="max-w-xs md:max-w-sm px-4 py-2 rounded-2xl shadow-sm bg-blue-600 text-white rounded-br-lg">${escapeHtml(text)}</div>`;
+        chatMessages.appendChild(messageWrapper);
+        smartScrollToBottom();
+    };
+
+    const escapeHtml = (text) => {
+        const map = {
+            '&': '&amp;',
+            '<': '&lt;',
+            '>': '&gt;',
+            '"': '&quot;',
+            "'": '&#039;'
+        };
+        return text.replace(/[&<>"']/g, m => map[m]);
+    };
+
+    const typeMessage = (element, text) => {
+        let index = 0;
+        element.innerHTML = ''; 
+        const cursor = document.createElement('span');
+        cursor.className = 'blinking-cursor';
+        element.appendChild(cursor);
+        isBotTyping = true;
+        chatInput.disabled = true;
+        
+        const typingInterval = setInterval(() => {
+            if (index < text.length) {
+                element.insertBefore(document.createTextNode(text.charAt(index)), cursor);
+                index++;
+                smartScrollToBottom();
+            } else {
+                clearInterval(typingInterval);
+                element.removeChild(cursor);
+                isBotTyping = false;
+                chatInput.disabled = false;
+                chatInput.focus();
+            }
+        }, 20);
+    };
+    
+    const addBotMessageWithTypingEffect = (text, delay = 0) => {
+        setTimeout(() => {
+            const messageWrapper = document.createElement('div');
+            messageWrapper.className = 'flex justify-start';
+            const messageElement = document.createElement('div');
+            messageElement.className = 'max-w-xs md:max-w-sm px-4 py-2 rounded-2xl shadow-sm bg-slate-200 text-slate-800 rounded-bl-lg';
+            messageWrapper.appendChild(messageElement);
+            chatMessages.appendChild(messageWrapper);
+            smartScrollToBottom();
+            typeMessage(messageElement, text);
+        }, delay);
+    };
+    
+    async function handleBotResponse() {
+        isBotTyping = true;
+        chatInput.disabled = true;
+        typingIndicator.style.display = 'flex';
+        indicatorText.textContent = 'Thinking';
+        smartScrollToBottom();
+        
+        let botReply = await callGeminiAPI();
+
+        // Check for order submission action
+        const actionRegex = /\[ACTION:SUBMIT_ORDER_V1\]({.*})/;
+        const actionMatch = botReply.match(actionRegex);
+
+        if (actionMatch) {
+            try {
+                const orderJsonString = actionMatch[1];
+                const orderDetails = JSON.parse(orderJsonString);
+                
+                // Submit to backend
+                const success = await submitOrderToBackend(orderDetails);
+                
+                // Clean the reply
+                botReply = botReply.replace(actionRegex, '').trim();
+                
+                if (!success) {
+                    botReply += "\n\n⚠️ There was a technical issue submitting your order. Please try using the request form on our website or contact support.";
+                }
+            } catch (error) {
+                console.error("Failed to parse or submit order:", error);
+                botReply = "I encountered an issue while processing your order. Please use the request form on our website or contact our support team.";
+            }
+        }
+
+        chatHistory.push({ role: 'model', parts: [{ text: botReply }] });
+        
+        indicatorText.textContent = 'Writing';
+        setTimeout(() => {
+            typingIndicator.style.display = 'none';
+            addBotMessageWithTypingEffect(botReply);
+        }, 500);
+    }
+
+    // Event Listeners
+    if (chatLauncher) chatLauncher.addEventListener('click', toggleChatWindow);
+    if (closeChatBtn) closeChatBtn.addEventListener('click', toggleChatWindow);
+
+    if (chatForm) {
+        chatForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            if (isBotTyping) return;
+            const userInput = chatInput.value.trim();
+            if (!userInput) return;
+            appendUserMessage(userInput);
+            chatInput.value = '';
+            handleBotResponse();
+        });
+    }
+});
+</script>

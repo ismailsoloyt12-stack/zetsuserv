@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ZetsuServ - Order Queue Status</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Custom Google Font: Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f8fafc;
+        }
+        .queue-card {
+            box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.05), 0 4px 6px -4px rgb(0 0 0 / 0.05);
+            transition: all 0.3s ease-in-out;
+        }
+    </style>
+</head>
+<body class="flex items-center justify-center min-h-screen p-4">
+
+    <div class="w-full max-w-md">
+        <!-- Main Queue Status Card -->
+        <div id="queue-card" class="queue-card bg-white p-8 rounded-2xl border border-slate-200">
+            
+            {% if queue_position == 1 or queue_position == 0 %}
+            <!-- STATE 1: User is FIRST in the queue -->
+            <div id="first-in-queue-view" class="text-center">
+                <!-- Icon -->
+                <div class="mx-auto flex items-center justify-center h-16 w-16 bg-green-100 rounded-full mb-6">
+                    <svg class="h-8 w-8 text-green-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                </div>
+                <!-- Heading -->
+                <h1 class="text-2xl font-bold text-slate-800">Hey Champ, You're First!</h1>
+                <p class="mt-2 text-slate-500">Congratulations! Your project is now active and our team has started working on it.</p>
+                <!-- Tracking Number -->
+                <div class="mt-6 text-left">
+                    <p class="text-sm font-medium text-slate-600 mb-2">Your Tracking Number:</p>
+                    <div class="border-dashed border-2 border-slate-300 bg-slate-50 rounded-lg p-4 text-center">
+                        <p id="tracking-number" class="font-mono text-lg font-semibold text-slate-700 tracking-wider">{{ tracking_code }}</p>
+                    </div>
+                </div>
+                <!-- Action Button -->
+                <a href="{{ url_for('public.track_order', order_code=tracking_code) }}" 
+                   class="block w-full bg-blue-600 text-white font-semibold py-3 px-4 rounded-lg mt-8 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors text-center">
+                    Track Your Project
+                </a>
+            </div>
+            {% else %}
+            <!-- STATE 2: User is WAITING in the queue -->
+            <div id="waiting-view" class="text-center">
+                <!-- Icon -->
+                <div class="mx-auto flex items-center justify-center h-16 w-16 bg-amber-100 rounded-full mb-6">
+                    <svg class="h-8 w-8 text-amber-600" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                </div>
+                <!-- Heading -->
+                <h1 class="text-2xl font-bold text-slate-800">You're in the Queue!</h1>
+                <p class="mt-2 text-slate-500">Your order has been successfully received. We'll get to it as soon as we complete the projects ahead of you.</p>
+                <!-- Queue Position -->
+                <div class="mt-6 bg-slate-50 rounded-lg p-4 flex justify-between items-center border border-slate-200">
+                    <p class="font-medium text-slate-600">Your Position:</p>
+                    <p id="queue-position" class="font-bold text-2xl text-slate-800">#{{ queue_position }}</p>
+                </div>
+                <!-- Orders Ahead -->
+                <div class="mt-4 text-sm text-slate-600">
+                    <p>{{ orders_ahead }} {{ 'order' if orders_ahead == 1 else 'orders' }} ahead of you</p>
+                </div>
+                <!-- Notification Info -->
+                <div class="mt-8 text-center text-sm text-slate-500 bg-blue-50 p-4 rounded-lg border border-blue-200">
+                    <p>
+                        We will send an email to <strong id="user-waiting-email">{{ masked_email }}</strong> with your tracking number as soon as your project becomes active. You can safely close this page.
+                    </p>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- Links -->
+        <div class="mt-6 text-center">
+            <a href="{{ url_for('public.index') }}" class="text-sm text-slate-600 hover:text-slate-800">
+                ← Back to Home
+            </a>
+        </div>
+    </div>
+
+    <script>
+        // Auto-refresh queue status every 30 seconds
+        setInterval(function() {
+            fetch('{{ url_for("public.api_queue_status", request_id=request_id) }}')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.queue_position <= 1) {
+                        // User is now first, reload page to show tracking code
+                        window.location.reload();
+                    } else if (data.queue_position !== {{ queue_position }}) {
+                        // Position changed, reload to update
+                        window.location.reload();
+                    }
+                })
+                .catch(error => console.error('Error checking queue status:', error));
+        }, 30000); // Check every 30 seconds
+    </script>
+</body>
+</html>

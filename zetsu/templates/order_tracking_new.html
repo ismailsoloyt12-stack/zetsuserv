@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ZetsuServ - Project Tracker - Order #ZTS-{{ '%06d'|format(request.id) }}</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Custom Google Font: Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <!-- Font Awesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f1f5f9; /* slate-100 */
+        }
+        /* Custom scrollbar for a cleaner look */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #f1f5f9; /* slate-100 */
+            border-radius: 10px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #cbd5e1; /* slate-300 */
+            border-radius: 10px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8; /* slate-400 */
+        }
+        .timeline-item-active .timeline-icon {
+            animation: pulse 2s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% {
+                transform: scale(1);
+                box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.4);
+            }
+            50% {
+                transform: scale(1.05);
+                box-shadow: 0 0 0 10px rgba(59, 130, 246, 0);
+            }
+        }
+    </style>
+</head>
+<body class="p-4 sm:p-6 lg:p-8">
+
+    <div class="max-w-7xl mx-auto">
+        <!-- Header Section -->
+        <header class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6">
+            <div>
+                <h1 class="text-2xl font-bold text-slate-800">Order #<span class="text-blue-600">ZTS-{{ '%06d'|format(request.id) }}</span></h1>
+                <p class="text-slate-500 mt-1">{{ request.project_title }}</p>
+                <div class="flex items-center gap-2 mt-3">
+                    <span class="bg-blue-100 text-blue-700 text-xs font-semibold px-2.5 py-1 rounded-full">{{ request.get_status_display() }}</span>
+                    <span class="bg-green-100 text-green-700 text-xs font-semibold px-2.5 py-1 rounded-full">{{ request.get_project_type_display() }}</span>
+                </div>
+            </div>
+            <div class="flex items-center gap-3 mt-4 sm:mt-0">
+                <a href="{{ url_for('public.user_dashboard') if current_user.is_authenticated else url_for('public.index') }}" class="bg-slate-200 text-slate-700 font-semibold py-2 px-4 rounded-lg hover:bg-slate-300 transition-colors">Dashboard</a>
+                {% if current_user.is_authenticated %}
+                <a href="{{ url_for('public.user_logout') }}" class="bg-red-500 text-white font-semibold py-2 px-4 rounded-lg hover:bg-red-600 transition-colors">Sign Out</a>
+                {% endif %}
+            </div>
+        </header>
+
+        <!-- Main Content Grid -->
+        <main class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+
+            <!-- Left Column: Project Timeline -->
+            <div class="lg:col-span-2 bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+                <h2 class="text-xl font-bold text-slate-800 mb-6">Project Timeline</h2>
+                <div class="relative custom-scrollbar overflow-y-auto" style="max-height: 80vh;">
+                    <!-- Timeline -->
+                    <div class="border-l-2 border-slate-200 ml-3 py-3 space-y-8">
+                        
+                        {% for step in progress_steps %}
+                        <!-- Timeline Item -->
+                        <div class="relative pl-8">
+                            {% if step.status == 'completed' %}
+                            <div class="absolute -left-[7px] top-1 flex items-center justify-center w-4 h-4 bg-green-500 rounded-full">
+                                <i class="fas fa-check text-white text-[8px]"></i>
+                            </div>
+                            {% elif step.status == 'in_progress' %}
+                            <div class="absolute -left-[7px] top-1 timeline-icon flex items-center justify-center w-4 h-4 bg-blue-500 rounded-full ring-8 ring-blue-100 timeline-item-active"></div>
+                            {% else %}
+                            <div class="absolute -left-[7px] top-1 flex items-center justify-center w-4 h-4 bg-white border-2 border-slate-300 rounded-full opacity-60"></div>
+                            {% endif %}
+                            
+                            <h3 class="font-semibold text-slate-800 {% if step.status == 'pending' %}opacity-60{% endif %}">{{ step.step_name }}</h3>
+                            
+                            {% if step.status == 'completed' %}
+                            <p class="text-sm text-slate-500">Completed: {{ step.completed_at.strftime('%B %d, %Y at %I:%M %p') if step.completed_at else 'N/A' }}</p>
+                            {% elif step.status == 'in_progress' %}
+                            <p class="text-sm text-blue-600 font-medium">In Progress</p>
+                            {% else %}
+                            <p class="text-sm text-slate-500">Pending</p>
+                            {% endif %}
+                            
+                            {% if step.step_description %}
+                            <p class="mt-1 text-sm text-slate-600 {% if step.status == 'pending' %}opacity-60{% endif %}">{{ step.step_description }}</p>
+                            {% endif %}
+                            
+                            {% if step.status == 'in_progress' and step.progress_percentage %}
+                            <div class="mt-3">
+                                <small class="text-slate-500">Step Progress: {{ step.progress_percentage }}%</small>
+                                <div class="w-full bg-slate-200 rounded-full h-1.5 mt-1">
+                                    <div class="bg-blue-600 h-1.5 rounded-full" style="width: {{ step.progress_percentage }}%"></div>
+                                </div>
+                            </div>
+                            {% endif %}
+                            
+                            {% if step.notes %}
+                            <div class="mt-2 p-2 bg-slate-50 rounded">
+                                <small class="text-slate-500"><i class="fas fa-info-circle"></i> {{ step.notes }}</small>
+                            </div>
+                            {% endif %}
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Right Column: Progress and Communication -->
+            <div class="lg:col-span-1 space-y-6">
+                <!-- Overall Progress Card -->
+                <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+                    <h2 class="text-xl font-bold text-slate-800 mb-4">Overall Progress</h2>
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="text-sm font-medium text-slate-500">Project Completion</span>
+                        <span class="text-lg font-bold text-blue-600">{{ overall_progress }}%</span>
+                    </div>
+                    <div class="w-full bg-slate-200 rounded-full h-2.5">
+                        <div class="bg-blue-600 h-2.5 rounded-full transition-all duration-1000 ease-out" style="width: {{ overall_progress }}%" id="progressBar"></div>
+                    </div>
+                    <p class="text-xs text-center mt-2 text-slate-400">
+                        {% if overall_progress == 100 %}
+                        Project completed!
+                        {% elif overall_progress > 0 %}
+                        In progress...
+                        {% else %}
+                        Starting soon...
+                        {% endif %}
+                    </p>
+                </div>
+
+                <!-- Messages & Communication Card -->
+                <div class="bg-white rounded-2xl shadow-sm border border-slate-200 flex flex-col" style="height: 65vh;">
+                    <h2 class="text-xl font-bold text-slate-800 p-6 border-b border-slate-200">Messages</h2>
+                    
+                    <!-- Chat Area -->
+                    <div class="flex-1 p-6 space-y-4 overflow-y-auto custom-scrollbar" id="messagesContainer">
+                        {% if messages %}
+                            {% for message in messages %}
+                            <!-- Message -->
+                            <div class="flex {% if message.sender_type == 'client' %}justify-end{% endif %} gap-3">
+                                {% if message.sender_type == 'admin' %}
+                                <div class="w-8 h-8 rounded-full bg-slate-200 flex-shrink-0 flex items-center justify-center">
+                                    <i class="fas fa-headset text-slate-500"></i>
+                                </div>
+                                {% endif %}
+                                <div>
+                                    <div class="{% if message.sender_type == 'client' %}bg-blue-600 text-white rounded-br-none{% else %}bg-slate-100 text-slate-700 rounded-tl-none{% endif %} p-3 rounded-lg">
+                                        <p class="text-sm">{{ message.content }}</p>
+                                    </div>
+                                    <span class="text-xs text-slate-400 mt-1 {% if message.sender_type == 'client' %}float-right{% endif %}">
+                                        {{ message.sender_name }} • {{ message.created_at.strftime('%b %d, %I:%M %p') }}
+                                    </span>
+                                </div>
+                                {% if message.sender_type == 'client' %}
+                                <div class="w-8 h-8 rounded-full bg-slate-700 flex-shrink-0 flex items-center justify-center">
+                                    <i class="fas fa-user text-white"></i>
+                                </div>
+                                {% endif %}
+                            </div>
+                            {% endfor %}
+                        {% else %}
+                            <!-- Welcome Message -->
+                            <div class="flex gap-3">
+                                <div class="w-8 h-8 rounded-full bg-slate-200 flex-shrink-0 flex items-center justify-center">
+                                    <i class="fas fa-headset text-slate-500"></i>
+                                </div>
+                                <div>
+                                    <div class="bg-slate-100 p-3 rounded-lg rounded-tl-none">
+                                        <p class="text-sm text-slate-700">Hello! We've received your order and our team will start working on it soon. Feel free to send us a message if you have any questions!</p>
+                                    </div>
+                                    <span class="text-xs text-slate-400 mt-1">ZetsuServ Support • Just now</span>
+                                </div>
+                            </div>
+                        {% endif %}
+                    </div>
+
+                    <!-- Input Area -->
+                    <div class="p-4 border-t border-slate-200 bg-white rounded-b-2xl">
+                        <form id="messageForm" method="POST" action="{{ url_for('public.send_message', order_code=order_code) }}" class="flex items-center gap-3">
+                            <input type="text" name="message" placeholder="Type your message..." required class="w-full bg-slate-100 border-transparent focus:border-blue-500 focus:ring-blue-500 rounded-lg text-sm px-4 py-2.5">
+                            <button type="submit" class="bg-blue-600 text-white rounded-lg h-10 w-10 flex-shrink-0 flex items-center justify-center hover:bg-blue-700 transition-colors">
+                                <i class="fas fa-paper-plane"></i>
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <!-- AI Assistant Button -->
+    <button class="fixed bottom-[30px] right-[30px] w-[60px] h-[60px] rounded-full bg-gradient-to-br from-blue-600 to-purple-700 text-white border-none cursor-pointer shadow-lg hover:scale-110 transition-all z-[999]" onclick="openAIAssistant()">
+        <i class="fas fa-robot"></i>
+    </button>
+
+    <!-- AI Assistant Modal (Simple Implementation) -->
+    <div id="aiAssistantModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[1000]">
+        <div class="bg-white rounded-2xl max-w-lg w-full m-4 max-h-[80vh] flex flex-col">
+            <div class="bg-gradient-to-r from-blue-600 to-purple-700 text-white p-6 rounded-t-2xl flex justify-between items-center">
+                <h5 class="text-xl font-bold"><i class="fas fa-robot mr-2"></i>AI Support Assistant</h5>
+                <button onclick="closeAIAssistant()" class="text-white hover:bg-white hover:bg-opacity-20 rounded p-1">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="flex-1 overflow-y-auto p-6 bg-slate-50" id="ai-chat-container">
+                <div class="text-center text-slate-400">
+                    <i class="fas fa-robot text-5xl mb-3"></i>
+                    <p>Hello! I'm your AI assistant. How can I help you today?</p>
+                </div>
+            </div>
+            <div class="p-4 border-t border-slate-200">
+                <div class="flex gap-3">
+                    <input type="text" id="aiInput" placeholder="Ask me anything about your project..." class="flex-1 border border-slate-300 rounded-lg px-4 py-2">
+                    <button onclick="sendAIMessage()" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors">
+                        <i class="fas fa-paper-plane"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Auto-refresh for new messages and updates
+        let lastMessageId = {{ messages[-1].id if messages else 0 }};
+        const orderCode = '{{ order_code }}';
+        
+        function checkForUpdates() {
+            fetch(`/api/order/${orderCode}/updates?last_id=${lastMessageId}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.new_messages) {
+                        data.messages.forEach(message => {
+                            addMessageToChat(message);
+                            lastMessageId = message.id;
+                        });
+                        playNotificationSound();
+                    }
+                    
+                    if (data.progress_updated) {
+                        location.reload(); // Reload to show new progress
+                    }
+                })
+                .catch(error => console.error('Error checking for updates:', error));
+        }
+        
+        function addMessageToChat(message) {
+            const container = document.getElementById('messagesContainer');
+            const messageDiv = document.createElement('div');
+            const isClient = message.sender_type === 'client';
+            
+            messageDiv.className = `flex ${isClient ? 'justify-end' : ''} gap-3`;
+            
+            let avatarHtml = '';
+            if (message.sender_type === 'admin') {
+                avatarHtml = `
+                    <div class="w-8 h-8 rounded-full bg-slate-200 flex-shrink-0 flex items-center justify-center">
+                        <i class="fas fa-headset text-slate-500"></i>
+                    </div>
+                `;
+            } else {
+                avatarHtml = `
+                    <div class="w-8 h-8 rounded-full bg-slate-700 flex-shrink-0 flex items-center justify-center">
+                        <i class="fas fa-user text-white"></i>
+                    </div>
+                `;
+            }
+            
+            messageDiv.innerHTML = `
+                ${!isClient ? avatarHtml : ''}
+                <div>
+                    <div class="${isClient ? 'bg-blue-600 text-white rounded-br-none' : 'bg-slate-100 text-slate-700 rounded-tl-none'} p-3 rounded-lg">
+                        <p class="text-sm">${message.content}</p>
+                    </div>
+                    <span class="text-xs text-slate-400 mt-1 ${isClient ? 'float-right' : ''}">
+                        ${message.sender_name} • ${formatDate(message.created_at)}
+                    </span>
+                </div>
+                ${isClient ? avatarHtml : ''}
+            `;
+            
+            container.appendChild(messageDiv);
+            container.scrollTop = container.scrollHeight;
+        }
+        
+        function playNotificationSound() {
+            // Create a simple beep sound
+            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+            
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+            
+            oscillator.frequency.value = 800;
+            oscillator.type = 'sine';
+            gainNode.gain.value = 0.1;
+            
+            oscillator.start(audioContext.currentTime);
+            oscillator.stop(audioContext.currentTime + 0.1);
+        }
+        
+        function formatDate(dateString) {
+            const date = new Date(dateString);
+            return date.toLocaleDateString('en-US', { 
+                month: 'short', 
+                day: 'numeric', 
+                hour: 'numeric', 
+                minute: '2-digit',
+                hour12: true 
+            });
+        }
+        
+        // AI Assistant Functions
+        function openAIAssistant() {
+            document.getElementById('aiAssistantModal').classList.remove('hidden');
+        }
+        
+        function closeAIAssistant() {
+            document.getElementById('aiAssistantModal').classList.add('hidden');
+        }
+        
+        function sendAIMessage() {
+            const input = document.getElementById('aiInput');
+            const message = input.value.trim();
+            
+            if (!message) return;
+            
+            const chatContainer = document.getElementById('ai-chat-container');
+            
+            // Add user message
+            const userMessageDiv = document.createElement('div');
+            userMessageDiv.className = 'mb-3 text-right';
+            userMessageDiv.innerHTML = `
+                <div class="inline-block bg-blue-600 text-white p-2 rounded-lg max-w-[70%]">
+                    ${message}
+                </div>
+            `;
+            chatContainer.appendChild(userMessageDiv);
+            
+            input.value = '';
+            
+            // Simulate AI response (replace with actual API call)
+            fetch('/api/ai-assistant', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    message: message,
+                    order_code: orderCode
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                const aiMessageDiv = document.createElement('div');
+                aiMessageDiv.className = 'mb-3';
+                aiMessageDiv.innerHTML = `
+                    <div class="inline-block bg-slate-100 p-2 rounded-lg max-w-[70%]">
+                        <i class="fas fa-robot mr-2"></i>${data.response}
+                    </div>
+                `;
+                chatContainer.appendChild(aiMessageDiv);
+                chatContainer.scrollTop = chatContainer.scrollHeight;
+            })
+            .catch(error => {
+                // Fallback response
+                const aiMessageDiv = document.createElement('div');
+                aiMessageDiv.className = 'mb-3';
+                aiMessageDiv.innerHTML = `
+                    <div class="inline-block bg-slate-100 p-2 rounded-lg max-w-[70%]">
+                        <i class="fas fa-robot mr-2"></i>I'm here to help! Your project is progressing well. Is there anything specific you'd like to know?
+                    </div>
+                `;
+                chatContainer.appendChild(aiMessageDiv);
+                chatContainer.scrollTop = chatContainer.scrollHeight;
+            });
+        }
+        
+        // Handle message form submission
+        document.getElementById('messageForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const formData = new FormData(this);
+            
+            fetch(this.action, {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    addMessageToChat(data.message);
+                    this.reset();
+                }
+            })
+            .catch(error => console.error('Error sending message:', error));
+        });
+        
+        // Check for updates every 10 seconds
+        setInterval(checkForUpdates, 10000);
+        
+        // Scroll to bottom of messages on load
+        document.addEventListener('DOMContentLoaded', function() {
+            const container = document.getElementById('messagesContainer');
+            if (container) {
+                container.scrollTop = container.scrollHeight;
+            }
+            
+            // Animate progress bar on load
+            const progressBar = document.getElementById('progressBar');
+            if (progressBar) {
+                const targetWidth = progressBar.style.width;
+                progressBar.style.width = '0%';
+                setTimeout(() => {
+                    progressBar.style.width = targetWidth;
+                }, 100);
+            }
+        });
+        
+        // Close modal when clicking outside
+        document.getElementById('aiAssistantModal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeAIAssistant();
+            }
+        });
+    </script>
+
+</body>
+</html>

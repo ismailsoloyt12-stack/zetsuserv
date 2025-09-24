@@ -1,0 +1,687 @@
+{% extends "base.html" %}
+
+{% block title %}Order Tracking - {{ order_code }} | ZetsuServ{% endblock %}
+
+{% block extra_css %}
+<style>
+    /* Progress Timeline Styles */
+    .tracking-container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 20px;
+    }
+    
+    .tracking-header {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 40px;
+        border-radius: 15px;
+        margin-bottom: 30px;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+    }
+    
+    .order-code {
+        font-size: 2rem;
+        font-weight: bold;
+        margin-bottom: 10px;
+    }
+    
+    .progress-timeline {
+        position: relative;
+        padding: 30px 0;
+    }
+    
+    .timeline-item {
+        display: flex;
+        margin-bottom: 40px;
+        position: relative;
+        animation: fadeIn 0.5s ease-in-out;
+    }
+    
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(20px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    
+    .timeline-marker {
+        width: 50px;
+        height: 50px;
+        border-radius: 50%;
+        background: #e2e8f0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        position: relative;
+        z-index: 2;
+        transition: all 0.3s ease;
+    }
+    
+    .timeline-marker.completed {
+        background: linear-gradient(135deg, #00c851 0%, #00a846 100%);
+        color: white;
+        box-shadow: 0 4px 15px rgba(0,200,81,0.4);
+    }
+    
+    .timeline-marker.in-progress {
+        background: linear-gradient(135deg, #ffa726 0%, #fb8c00 100%);
+        color: white;
+        animation: pulse 2s infinite;
+        box-shadow: 0 4px 15px rgba(255,167,38,0.4);
+    }
+    
+    @keyframes pulse {
+        0% { transform: scale(1); }
+        50% { transform: scale(1.1); }
+        100% { transform: scale(1); }
+    }
+    
+    .timeline-marker.pending {
+        background: #f1f5f9;
+        color: #94a3b8;
+    }
+    
+    .timeline-line {
+        position: absolute;
+        left: 25px;
+        top: 50px;
+        width: 2px;
+        height: calc(100% - 50px);
+        background: #e2e8f0;
+        z-index: 1;
+    }
+    
+    .timeline-line.active {
+        background: linear-gradient(180deg, #00c851 0%, #e2e8f0 100%);
+    }
+    
+    .timeline-content {
+        flex: 1;
+        margin-left: 30px;
+        background: white;
+        padding: 25px;
+        border-radius: 10px;
+        box-shadow: 0 5px 20px rgba(0,0,0,0.08);
+        transition: transform 0.3s ease;
+    }
+    
+    .timeline-content:hover {
+        transform: translateX(5px);
+        box-shadow: 0 8px 30px rgba(0,0,0,0.12);
+    }
+    
+    .timeline-title {
+        font-size: 1.3rem;
+        font-weight: 600;
+        color: #2d3748;
+        margin-bottom: 10px;
+    }
+    
+    .timeline-date {
+        color: #718096;
+        font-size: 0.9rem;
+        margin-bottom: 15px;
+    }
+    
+    .timeline-description {
+        color: #4a5568;
+        line-height: 1.6;
+    }
+    
+    .progress-bar-container {
+        background: #f7fafc;
+        padding: 30px;
+        border-radius: 15px;
+        margin-bottom: 40px;
+    }
+    
+    .progress-percentage {
+        font-size: 3rem;
+        font-weight: bold;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        text-align: center;
+        margin-bottom: 20px;
+    }
+    
+    .progress-bar {
+        height: 30px;
+        background: #e2e8f0;
+        border-radius: 15px;
+        overflow: hidden;
+        position: relative;
+    }
+    
+    .progress-fill {
+        height: 100%;
+        background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+        border-radius: 15px;
+        transition: width 1s ease-in-out;
+        position: relative;
+        overflow: hidden;
+    }
+    
+    .progress-fill::after {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+        animation: shimmer 2s infinite;
+    }
+    
+    @keyframes shimmer {
+        0% { transform: translateX(-100%); }
+        100% { transform: translateX(100%); }
+    }
+    
+    /* Message Section */
+    .messaging-section {
+        background: white;
+        border-radius: 15px;
+        padding: 30px;
+        box-shadow: 0 5px 20px rgba(0,0,0,0.08);
+        margin-bottom: 30px;
+    }
+    
+    .messages-container {
+        max-height: 400px;
+        overflow-y: auto;
+        padding: 20px;
+        background: #f7fafc;
+        border-radius: 10px;
+        margin-bottom: 20px;
+    }
+    
+    .message {
+        margin-bottom: 15px;
+        animation: slideIn 0.3s ease-in-out;
+    }
+    
+    @keyframes slideIn {
+        from { opacity: 0; transform: translateX(-20px); }
+        to { opacity: 1; transform: translateX(0); }
+    }
+    
+    .message.admin {
+        text-align: left;
+    }
+    
+    .message.client {
+        text-align: right;
+    }
+    
+    .message-bubble {
+        display: inline-block;
+        max-width: 70%;
+        padding: 12px 20px;
+        border-radius: 20px;
+        position: relative;
+    }
+    
+    .message.admin .message-bubble {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border-bottom-left-radius: 5px;
+    }
+    
+    .message.client .message-bubble {
+        background: #e2e8f0;
+        color: #2d3748;
+        border-bottom-right-radius: 5px;
+    }
+    
+    .message-meta {
+        font-size: 0.8rem;
+        color: #718096;
+        margin-top: 5px;
+    }
+    
+    .message-form {
+        display: flex;
+        gap: 10px;
+    }
+    
+    .message-input {
+        flex: 1;
+        padding: 12px;
+        border: 2px solid #e2e8f0;
+        border-radius: 10px;
+        font-size: 1rem;
+        transition: border-color 0.3s ease;
+    }
+    
+    .message-input:focus {
+        outline: none;
+        border-color: #667eea;
+    }
+    
+    .send-btn {
+        padding: 12px 30px;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border: none;
+        border-radius: 10px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: transform 0.3s ease;
+    }
+    
+    .send-btn:hover {
+        transform: translateY(-2px);
+    }
+    
+    /* Notification Badge */
+    .notification-badge {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: white;
+        border-radius: 10px;
+        padding: 15px 20px;
+        box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+        display: none;
+        animation: slideDown 0.3s ease-in-out;
+        z-index: 1000;
+    }
+    
+    @keyframes slideDown {
+        from { opacity: 0; transform: translateY(-20px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    
+    .notification-badge.show {
+        display: block;
+    }
+    
+    /* AI Assistant Button */
+    .ai-assistant-btn {
+        position: fixed;
+        bottom: 30px;
+        right: 30px;
+        width: 60px;
+        height: 60px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        border: none;
+        cursor: pointer;
+        box-shadow: 0 5px 20px rgba(102,126,234,0.4);
+        transition: all 0.3s ease;
+        z-index: 999;
+    }
+    
+    .ai-assistant-btn:hover {
+        transform: scale(1.1);
+        box-shadow: 0 8px 30px rgba(102,126,234,0.6);
+    }
+    
+    /* Mobile Responsiveness */
+    @media (max-width: 768px) {
+        .tracking-header {
+            padding: 25px;
+        }
+        
+        .order-code {
+            font-size: 1.5rem;
+        }
+        
+        .timeline-content {
+            margin-left: 20px;
+            padding: 15px;
+        }
+        
+        .timeline-title {
+            font-size: 1.1rem;
+        }
+        
+        .progress-percentage {
+            font-size: 2rem;
+        }
+        
+        .message-bubble {
+            max-width: 85%;
+        }
+        
+        .ai-assistant-btn {
+            width: 50px;
+            height: 50px;
+            bottom: 20px;
+            right: 20px;
+        }
+    }
+    
+    @media (max-width: 480px) {
+        .tracking-container {
+            padding: 10px;
+        }
+        
+        .tracking-header {
+            padding: 20px;
+            border-radius: 10px;
+        }
+        
+        .timeline-marker {
+            width: 40px;
+            height: 40px;
+        }
+        
+        .timeline-line {
+            left: 20px;
+        }
+        
+        .message-form {
+            flex-direction: column;
+        }
+        
+        .send-btn {
+            width: 100%;
+        }
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="tracking-container">
+    <!-- Header Section -->
+    <div class="tracking-header">
+        <div class="order-code">Order #{{ '%06d'|format(request.id) }}</div>
+        <div class="text-white-50">{{ request.project_title }}</div>
+        <div class="mt-3">
+            <span class="badge bg-white text-dark px-3 py-2">{{ request.get_status_display() }}</span>
+            <span class="badge bg-white text-dark px-3 py-2 ms-2">{{ request.get_project_type_display() }}</span>
+        </div>
+    </div>
+    
+    <!-- Progress Bar -->
+    <div class="progress-bar-container">
+        <div class="progress-percentage">{{ overall_progress }}%</div>
+        <div class="progress-bar">
+            <div class="progress-fill" style="width: {{ overall_progress }}%;"></div>
+        </div>
+        <div class="text-center mt-3 text-muted">Overall Project Completion</div>
+    </div>
+    
+    <!-- Timeline -->
+    <div class="progress-timeline">
+        {% for step in progress_steps %}
+        <div class="timeline-item">
+            {% if not loop.last %}
+            <div class="timeline-line {% if step.status == 'completed' %}active{% endif %}"></div>
+            {% endif %}
+            
+            <div class="timeline-marker {{ step.status }}">
+                {% if step.status == 'completed' %}
+                    <i class="fas fa-check"></i>
+                {% elif step.status == 'in_progress' %}
+                    <i class="fas fa-spinner fa-spin"></i>
+                {% else %}
+                    <i class="fas fa-circle"></i>
+                {% endif %}
+            </div>
+            
+            <div class="timeline-content">
+                <div class="timeline-title">{{ step.step_name }}</div>
+                <div class="timeline-date">
+                    {% if step.completed_at %}
+                        Completed: {{ step.completed_at.strftime('%B %d, %Y at %I:%M %p') }}
+                    {% elif step.started_at %}
+                        Started: {{ step.started_at.strftime('%B %d, %Y at %I:%M %p') }}
+                    {% else %}
+                        Pending
+                    {% endif %}
+                </div>
+                <div class="timeline-description">
+                    {{ step.step_description or 'No description available' }}
+                    {% if step.notes %}
+                        <div class="mt-2 p-2 bg-light rounded">
+                            <small class="text-muted"><i class="fas fa-info-circle"></i> {{ step.notes }}</small>
+                        </div>
+                    {% endif %}
+                </div>
+                {% if step.status == 'in_progress' and step.progress_percentage %}
+                    <div class="mt-3">
+                        <small class="text-muted">Progress: {{ step.progress_percentage }}%</small>
+                        <div class="progress mt-1" style="height: 5px;">
+                            <div class="progress-bar bg-success" style="width: {{ step.progress_percentage }}%;"></div>
+                        </div>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+    
+    <!-- Messaging Section -->
+    <div class="messaging-section">
+        <h3 class="mb-4"><i class="fas fa-comments"></i> Messages & Updates</h3>
+        
+        <div class="messages-container" id="messagesContainer">
+            {% for message in messages %}
+            <div class="message {{ message.sender_type }}">
+                <div class="message-bubble">
+                    {{ message.content }}
+                </div>
+                <div class="message-meta">
+                    {{ message.sender_name }} • {{ message.created_at.strftime('%b %d, %I:%M %p') }}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        
+        <form class="message-form" id="messageForm" method="POST" action="{{ url_for('public.send_message', order_code=order_code) }}">
+            <input type="text" class="message-input" name="message" placeholder="Type your message..." required>
+            <button type="submit" class="send-btn">
+                <i class="fas fa-paper-plane"></i> Send
+            </button>
+        </form>
+    </div>
+    
+    <!-- Notifications Container -->
+    <div id="notifications-container"></div>
+</div>
+
+<!-- AI Assistant Button -->
+<button class="ai-assistant-btn" onclick="openAIAssistant()">
+    <i class="fas fa-robot"></i>
+</button>
+
+<!-- AI Assistant Modal -->
+<div class="modal fade" id="aiAssistantModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-gradient-primary text-white">
+                <h5 class="modal-title"><i class="fas fa-robot"></i> AI Support Assistant</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="ai-chat-container" style="height: 400px; overflow-y: auto; padding: 20px; background: #f8f9fa; border-radius: 10px;">
+                    <div class="text-center text-muted">
+                        <i class="fas fa-robot fa-3x mb-3"></i>
+                        <p>Hello! I'm your AI assistant. How can I help you today?</p>
+                    </div>
+                </div>
+                <div class="input-group mt-3">
+                    <input type="text" class="form-control" id="aiInput" placeholder="Ask me anything about your project...">
+                    <button class="btn btn-primary" onclick="sendAIMessage()">
+                        <i class="fas fa-paper-plane"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Auto-refresh for new messages and updates
+    let lastMessageId = {{ messages[-1].id if messages else 0 }};
+    let notificationSound = new Audio('data:audio/wav;base64,UklGRnoGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YQoGAACBhYqFbF1fdJivrJBhNjVgodDbq2EcBj+a2/LDciUFLIHO8tiJNwgZaLvt559NEAxQp+PwtmMcBjiR1/LMeSwFJHfH8N2QQAoUXrTp66hVGglGn+DyvmwhBj');
+    
+    function checkForUpdates() {
+        fetch(`/api/order/${order_code}/updates?last_id=${lastMessageId}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.new_messages) {
+                    data.messages.forEach(message => {
+                        addMessageToChat(message);
+                        lastMessageId = message.id;
+                    });
+                    notificationSound.play();
+                    showNotification('New message received!', 'info');
+                }
+                
+                if (data.progress_updated) {
+                    location.reload(); // Reload to show new progress
+                }
+            });
+    }
+    
+    function addMessageToChat(message) {
+        const container = document.getElementById('messagesContainer');
+        const messageDiv = document.createElement('div');
+        messageDiv.className = `message ${message.sender_type}`;
+        messageDiv.innerHTML = `
+            <div class="message-bubble">${message.content}</div>
+            <div class="message-meta">${message.sender_name} • ${formatDate(message.created_at)}</div>
+        `;
+        container.appendChild(messageDiv);
+        container.scrollTop = container.scrollHeight;
+    }
+    
+    function showNotification(message, type = 'info') {
+        const notification = document.createElement('div');
+        notification.className = 'notification-badge show';
+        notification.innerHTML = `
+            <div class="d-flex align-items-center">
+                <i class="fas fa-${type === 'success' ? 'check-circle' : 'info-circle'} me-2"></i>
+                <span>${message}</span>
+            </div>
+        `;
+        document.body.appendChild(notification);
+        
+        setTimeout(() => {
+            notification.remove();
+        }, 5000);
+    }
+    
+    function formatDate(dateString) {
+        const date = new Date(dateString);
+        return date.toLocaleDateString('en-US', { 
+            month: 'short', 
+            day: 'numeric', 
+            hour: 'numeric', 
+            minute: '2-digit',
+            hour12: true 
+        });
+    }
+    
+    // AI Assistant Functions
+    function openAIAssistant() {
+        const modal = new bootstrap.Modal(document.getElementById('aiAssistantModal'));
+        modal.show();
+    }
+    
+    function sendAIMessage() {
+        const input = document.getElementById('aiInput');
+        const message = input.value.trim();
+        
+        if (!message) return;
+        
+        const chatContainer = document.getElementById('ai-chat-container');
+        
+        // Add user message
+        chatContainer.innerHTML += `
+            <div class="mb-3 text-end">
+                <div class="d-inline-block bg-primary text-white p-2 rounded" style="max-width: 70%;">
+                    ${message}
+                </div>
+            </div>
+        `;
+        
+        input.value = '';
+        
+        // Simulate AI response (replace with actual API call)
+        fetch('/api/ai-assistant', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                message: message,
+                order_code: '{{ order_code }}'
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            chatContainer.innerHTML += `
+                <div class="mb-3">
+                    <div class="d-inline-block bg-light p-2 rounded" style="max-width: 70%;">
+                        <i class="fas fa-robot me-2"></i>${data.response}
+                    </div>
+                </div>
+            `;
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        })
+        .catch(error => {
+            // Fallback response
+            chatContainer.innerHTML += `
+                <div class="mb-3">
+                    <div class="d-inline-block bg-light p-2 rounded" style="max-width: 70%;">
+                        <i class="fas fa-robot me-2"></i>I'm here to help! Your project is progressing well. Is there anything specific you'd like to know?
+                    </div>
+                </div>
+            `;
+            chatContainer.scrollTop = chatContainer.scrollHeight;
+        });
+    }
+    
+    // Handle message form submission
+    document.getElementById('messageForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        const formData = new FormData(this);
+        
+        fetch(this.action, {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                addMessageToChat(data.message);
+                this.reset();
+                showNotification('Message sent successfully!', 'success');
+            }
+        });
+    });
+    
+    // Check for updates every 10 seconds
+    setInterval(checkForUpdates, 10000);
+    
+    // Scroll to bottom of messages on load
+    document.addEventListener('DOMContentLoaded', function() {
+        const container = document.getElementById('messagesContainer');
+        if (container) {
+            container.scrollTop = container.scrollHeight;
+        }
+    });
+    
+    // Animate progress bar on load
+    window.addEventListener('load', function() {
+        const progressFill = document.querySelector('.progress-fill');
+        if (progressFill) {
+            const targetWidth = progressFill.style.width;
+            progressFill.style.width = '0%';
+            setTimeout(() => {
+                progressFill.style.width = targetWidth;
+            }, 100);
+        }
+    });
+</script>
+{% endblock %}

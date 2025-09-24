@@ -1,0 +1,127 @@
+{% extends "base.html" %}
+
+{% block title %}Admin Dashboard - ZetsuServ{% endblock %}
+
+{% block content %}
+<div class="admin-dashboard">
+    <div class="container">
+        <!-- Admin Header -->
+        <div class="admin-header">
+            <h1 class="admin-title">Admin Dashboard</h1>
+            <div class="admin-actions">
+                <a href="{{ url_for('admin.users') }}" class="btn btn-outline-secondary" style="margin-right: 10px;">
+                    <i class="fas fa-users"></i> Manage Users
+                </a>
+                <span class="admin-user">Welcome, {{ current_user.username }}</span>
+                <button onclick="confirmAdminSignOut()" class="btn btn-outline-danger">
+                    <i class="fas fa-sign-out-alt"></i> Logout
+                </button>
+            </div>
+        </div>
+        
+        <!-- Statistics Cards -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="stat-value">{{ stats.total }}</div>
+                <div class="stat-label">Total Requests</div>
+            </div>
+            <div class="stat-card stat-new">
+                <div class="stat-value">{{ stats.new }}</div>
+                <div class="stat-label">New</div>
+            </div>
+            <div class="stat-card stat-progress">
+                <div class="stat-value">{{ stats.in_progress }}</div>
+                <div class="stat-label">In Progress</div>
+            </div>
+            <div class="stat-card stat-delivered">
+                <div class="stat-value">{{ stats.delivered }}</div>
+                <div class="stat-label">Delivered</div>
+            </div>
+            <div class="stat-card stat-closed">
+                <div class="stat-value">{{ stats.closed }}</div>
+                <div class="stat-label">Closed</div>
+            </div>
+        </div>
+        
+        <!-- Filters -->
+        <div class="dashboard-filters">
+            <div class="filter-group">
+                <label>Filter by Status:</label>
+                <select id="statusFilter" class="form-control" onchange="applyFilters()">
+                    <option value="all" {% if status_filter == 'all' %}selected{% endif %}>All Requests</option>
+                    <option value="new" {% if status_filter == 'new' %}selected{% endif %}>New</option>
+                    <option value="in_progress" {% if status_filter == 'in_progress' %}selected{% endif %}>In Progress</option>
+                    <option value="delivered" {% if status_filter == 'delivered' %}selected{% endif %}>Delivered</option>
+                    <option value="closed" {% if status_filter == 'closed' %}selected{% endif %}>Closed</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <label>Sort by:</label>
+                <select id="sortBy" class="form-control" onchange="applyFilters()">
+                    <option value="newest" {% if sort_by == 'newest' %}selected{% endif %}>Newest First</option>
+                    <option value="oldest" {% if sort_by == 'oldest' %}selected{% endif %}>Oldest First</option>
+                    <option value="status" {% if sort_by == 'status' %}selected{% endif %}>Status</option>
+                </select>
+            </div>
+        </div>
+        
+        <!-- Requests Table -->
+        <div class="requests-table-wrapper">
+            <table class="requests-table">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Client Name</th>
+                        <th>Project Title</th>
+                        <th>Type</th>
+                        <th>Budget</th>
+                        <th>Status</th>
+                        <th>Date</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% if requests %}
+                        {% for request in requests %}
+                        <tr>
+                            <td>#{{ request.id }}</td>
+                            <td>{{ request.client_name }}</td>
+                            <td>{{ request.project_title }}</td>
+                            <td>{{ request.get_project_type_display() }}</td>
+                            <td>{{ request.budget }}</td>
+                            <td>
+                                <span class="badge {{ request.get_status_badge_class() }}">
+                                    {{ request.get_status_display() }}
+                                </span>
+                            </td>
+                            <td>{{ request.created_at.strftime('%Y-%m-%d') }}</td>
+                            <td>
+                                <a href="{{ url_for('admin.view_request', id=request.id) }}" class="btn btn-sm btn-primary">View</a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    {% else %}
+                        <tr>
+                            <td colspan="8" class="text-center">No requests found</td>
+                        </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+function applyFilters() {
+    const status = document.getElementById('statusFilter').value;
+    const sort = document.getElementById('sortBy').value;
+    window.location.href = `{{ url_for('admin.dashboard') }}?status=${status}&sort=${sort}`;
+}
+
+function confirmAdminSignOut() {
+    if (confirm('Are you sure you want to sign out from admin panel?')) {
+        window.location.href = '{{ url_for("admin.logout") }}';
+    }
+}
+</script>
+{% endblock %}

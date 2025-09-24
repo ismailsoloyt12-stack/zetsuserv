@@ -1,0 +1,157 @@
+{% extends "base.html" %}
+
+{% block title %}Thank You - ZetsuServ{% endblock %}
+
+{% block extra_css %}
+<style>
+    .tracking-code-box {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 30px;
+        border-radius: 15px;
+        margin: 30px 0;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+        text-align: center;
+    }
+    
+    .tracking-code {
+        font-size: 2rem;
+        font-weight: bold;
+        letter-spacing: 2px;
+        margin: 20px 0;
+        padding: 15px;
+        background: rgba(255,255,255,0.1);
+        border-radius: 10px;
+        border: 2px dashed rgba(255,255,255,0.5);
+        display: inline-block;
+    }
+    
+    .copy-btn {
+        background: white;
+        color: #667eea;
+        border: none;
+        padding: 10px 25px;
+        border-radius: 5px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: transform 0.3s ease;
+        margin: 0 5px;
+    }
+    
+    .copy-btn:hover {
+        transform: translateY(-2px);
+    }
+    
+    .copy-btn.copied {
+        background: #00c851;
+        color: white;
+    }
+    
+    .track-btn {
+        background: white;
+        color: #764ba2;
+        padding: 10px 25px;
+        border-radius: 5px;
+        font-weight: 600;
+        text-decoration: none;
+        display: inline-block;
+        margin: 0 5px;
+        transition: transform 0.3s ease;
+    }
+    
+    .track-btn:hover {
+        transform: translateY(-2px);
+        color: #764ba2;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<section class="thanks-section">
+    <div class="container">
+        <div class="thanks-wrapper">
+            <div class="thanks-icon">
+                <svg width="80" height="80" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+                    <polyline points="22 4 12 14.01 9 11.01"></polyline>
+                </svg>
+            </div>
+            
+            <h1 class="thanks-title">Thank You!</h1>
+            <p class="thanks-subtitle">Your request has been submitted successfully</p>
+            
+            {% if session.get('tracking_code') %}
+            <div class="tracking-code-box">
+                <h3 class="mb-3">🎯 Your Order Tracking Code</h3>
+                <div class="tracking-code" id="trackingCode">{{ session.get('tracking_code') }}</div>
+                <p class="mb-3" style="opacity: 0.9;">Save this code to track your order progress anytime</p>
+                <div>
+                    <button class="copy-btn" onclick="copyTrackingCode()">
+                        <i class="fas fa-copy"></i> Copy Code
+                    </button>
+                    <a href="{{ url_for('public.track_order', order_code=session.get('tracking_code')) }}" class="track-btn">
+                        <i class="fas fa-chart-line"></i> Track Now
+                    </a>
+                </div>
+            </div>
+            {% endif %}
+            
+            <div class="thanks-content">
+                <p>We've received your project request and will review it carefully. Our team will contact you within 24 hours to discuss your requirements in detail.</p>
+                
+                <div class="next-steps">
+                    <h3>What happens next?</h3>
+                    <ul>
+                        <li>✅ You'll receive an email with your tracking code</li>
+                        <li>✅ Our team will review your project requirements</li>
+                        <li>✅ Track your project progress in real-time</li>
+                        <li>✅ Communicate with our team through the tracking page</li>
+                        <li>✅ Receive notifications at every milestone</li>
+                    </ul>
+                </div>
+                
+                <div class="thanks-actions">
+                    <a href="{{ url_for('public.index') }}" class="btn btn-primary">Return to Homepage</a>
+                    {% if session.get('tracking_code') %}
+                    <a href="{{ url_for('public.track_order', order_code=session.get('tracking_code')) }}" class="btn btn-outline">
+                        <i class="fas fa-chart-line"></i> Track Your Order
+                    </a>
+                    {% else %}
+                    <a href="{{ url_for('public.index') }}#services" class="btn btn-outline">View Our Services</a>
+                    {% endif %}
+                </div>
+            </div>
+            
+            <div class="thanks-footer">
+                <p>Have questions? Contact us at <a href="mailto:info@zetsuserv.com">info@zetsuserv.com</a></p>
+            </div>
+        </div>
+    </div>
+</section>
+
+{% if session.get('tracking_code') %}
+<!-- Clear session after displaying -->
+{% set _ = session.pop('tracking_code', None) %}
+{% set _ = session.pop('request_id', None) %}
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function copyTrackingCode() {
+    const codeElement = document.getElementById('trackingCode');
+    const code = codeElement.textContent;
+    
+    navigator.clipboard.writeText(code).then(function() {
+        const btn = event.target.closest('.copy-btn');
+        btn.classList.add('copied');
+        btn.innerHTML = '<i class="fas fa-check"></i> Copied!';
+        
+        setTimeout(() => {
+            btn.classList.remove('copied');
+            btn.innerHTML = '<i class="fas fa-copy"></i> Copy Code';
+        }, 3000);
+    });
+}
+</script>
+{% endblock %}

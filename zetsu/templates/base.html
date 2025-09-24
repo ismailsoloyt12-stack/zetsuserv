@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <meta name="description" content="ZetsuServ - Professional Website Development Service">
+    
+    <title>{% block title %}ZetsuServ - Professional Web Development{% endblock %}</title>
+    
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    
+    <!-- Tailwind CSS for Chatbot -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- Main CSS -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+    
+    {% block extra_css %}{% endblock %}
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar">
+        <div class="container">
+            <div class="nav-wrapper">
+                <a href="{{ url_for('public.index') }}" class="nav-brand">
+                    <span class="brand-text">ZetsuServ</span>
+                </a>
+                
+                <div class="nav-menu">
+                    <a href="{{ url_for('public.index') }}" class="nav-link">Home</a>
+                    <a href="{{ url_for('public.index') }}#services" class="nav-link">Services</a>
+                    <a href="{{ url_for('public.index') }}#pricing" class="nav-link">Pricing</a>
+                    <a href="{{ url_for('public.index') }}#testimonials" class="nav-link">Testimonials</a>
+                    <a href="{{ url_for('public.request_service') }}" class="nav-link nav-cta">Request Service</a>
+                </div>
+                
+                <!-- Mobile Menu Toggle -->
+                <button class="nav-toggle" id="navToggle" aria-label="Toggle navigation">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </button>
+            </div>
+        </div>
+    </nav>
+    
+    <!-- Mobile Menu -->
+    <div class="mobile-menu" id="mobileMenu">
+        <a href="{{ url_for('public.index') }}" class="mobile-link">Home</a>
+        <a href="{{ url_for('public.index') }}#services" class="mobile-link">Services</a>
+        <a href="{{ url_for('public.index') }}#pricing" class="mobile-link">Pricing</a>
+        <a href="{{ url_for('public.index') }}#testimonials" class="mobile-link">Testimonials</a>
+        <a href="{{ url_for('public.request_service') }}" class="mobile-link mobile-cta">Request Service</a>
+    </div>
+    
+    <!-- Flash Messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            <div class="flash-messages">
+                {% for category, message in messages %}
+                    <div class="flash-message flash-{{ category }}">
+                        <span>{{ message }}</span>
+                        <button class="flash-close" onclick="this.parentElement.remove()">×</button>
+                    </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+    {% endwith %}
+    
+    <!-- Main Content -->
+    <main class="main-content">
+        {% block content %}{% endblock %}
+    </main>
+    
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-section">
+                    <h3 class="footer-title">ZetsuServ</h3>
+                    <p class="footer-text">Professional website development service delivering modern, secure, and responsive solutions.</p>
+                </div>
+                
+                <div class="footer-section">
+                    <h4 class="footer-subtitle">Quick Links</h4>
+                    <ul class="footer-links">
+                        <li><a href="{{ url_for('public.index') }}">Home</a></li>
+                        <li><a href="{{ url_for('public.index') }}#services">Services</a></li>
+                        <li><a href="{{ url_for('public.index') }}#pricing">Pricing</a></li>
+                        <li><a href="{{ url_for('public.request_service') }}">Request Service</a></li>
+                    </ul>
+                </div>
+                
+                <div class="footer-section">
+                    <h4 class="footer-subtitle">Services</h4>
+                    <ul class="footer-links">
+                        <li>Landing Page Development</li>
+                        <li>Business Website</li>
+                        <li>E-commerce Platform</li>
+                        <li>Custom Solutions</li>
+                    </ul>
+                </div>
+                
+                <div class="footer-section">
+                    <h4 class="footer-subtitle">Contact</h4>
+                    <ul class="footer-links">
+                        <li>Email: info@zetsuserv.com</li>
+                        <li>Phone: +1 (555) 123-4567</li>
+                        <li><a href="{{ url_for('admin.login') }}">Admin Portal</a></li>
+                    </ul>
+                </div>
+            </div>
+            
+            <div class="footer-bottom">
+                <p>&copy; 2025 ZetsuServ. All rights reserved.</p>
+            </div>
+        </div>
+    </footer>
+    
+    <!-- AI Chatbot Assistant -->
+    {% include 'chatbot.html' %}
+    
+    <!-- Main JavaScript -->
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    
+    {% block extra_js %}{% endblock %}
+</body>
+</html>
