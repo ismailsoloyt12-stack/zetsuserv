@@ -6,8 +6,8 @@
 <style>
     .dashboard-container {
         max-width: 1200px;
-        margin: 40px auto;
-        padding: 0 20px;
+        margin: 0 auto;
+        padding: 100px 20px 40px 20px; /* Add top padding for fixed navbar */
     }
     
     /* Hero header with video background */
@@ -15,20 +15,33 @@
         position: relative;
         border-radius: 16px;
         overflow: hidden;
-        min-height: 240px;
+        height: 280px; /* Fixed height for consistent display */
         margin-bottom: 30px;
         box-shadow: 0 12px 30px rgba(15, 23, 42, 0.25);
         background: linear-gradient(135deg, #1e293b, #0f172a); /* fallback gradient */
-        background-image: url('{{ url_for("static", filename="img/hero-fallback.svg") }}');
-        background-size: cover;
-        background-position: center;
+        display: flex;
+        align-items: center;
     }
     .dashboard-hero .hero-video {
         position: absolute;
-        inset: 0;
-        width: 100%;
-        height: 100%;
+        top: 50%;
+        left: 50%;
+        min-width: 100%;
+        min-height: 100%;
+        width: auto;
+        height: auto;
+        transform: translateX(-50%) translateY(-50%);
         object-fit: cover;
+        z-index: 0;
+    }
+    
+    /* Ensure video works on mobile Safari */
+    @supports (-webkit-touch-callout: none) {
+        .dashboard-hero .hero-video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
     }
     .dashboard-hero.video-disabled .hero-video {
         display: none;
@@ -52,7 +65,9 @@
         display: flex;
         align-items: center;
         gap: 24px;
-        padding: 28px;
+        padding: 35px;
+        height: 100%;
+        width: 100%;
     }
     .dashboard-hero h1 {
         color: #fff;
@@ -287,6 +302,11 @@
         border-bottom: 2px solid #e2e8f0;
     }
     
+    .orders-table-wrapper {
+        width: 100%;
+        overflow-x: auto;
+    }
+    
     .orders-table {
         width: 100%;
         border-collapse: collapse;
@@ -389,26 +409,164 @@
     }
     
     @media (max-width: 768px) {
-        .dashboard-hero { min-height: 200px; }
-        .dashboard-hero .hero-content { padding: 22px; flex-direction: column; text-align: center; }
-        .user-info { flex-direction: column; text-align: center; }
+        .dashboard-container {
+            padding: 70px 10px 20px 10px; /* Adjusted for mobile navbar */
+        }
+        
+        .dashboard-hero { 
+            height: auto; /* Auto height for mobile */
+            min-height: 260px;
+            margin-bottom: 20px;
+            background: linear-gradient(135deg, #0f172a, #1e293b); /* Ensure background while video loads */
+        }
+        
+        .dashboard-hero .hero-video {
+            /* Keep video visible on mobile */
+            display: block;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+        }
+        
+        /* Slightly darker overlay on mobile for better text readability */
+        .dashboard-hero .hero-overlay {
+            background: linear-gradient(135deg, rgba(15,23,42,0.7), rgba(2,6,23,0.5));
+        }
+        
+        .dashboard-hero .hero-actions {
+            top: 10px;
+            right: 10px;
+        }
+        
+        .btn-signout span {
+            display: none; /* Hide text, show only icon on mobile */
+        }
+        
+        .btn-settings {
+            padding: 8px;
+        }
+        
+        .dashboard-hero .hero-content { 
+            padding: 20px; 
+            flex-direction: column; 
+            text-align: center;
+            justify-content: center;
+        }
+        
+        .dashboard-hero h1 {
+            font-size: 1.4rem;
+            margin-bottom: 8px;
+        }
+        
+        .dashboard-hero p {
+            font-size: 0.9rem;
+        }
+        
+        .dashboard-hero .member-since {
+            font-size: 0.8rem;
+        }
+        
+        .user-avatar {
+            width: 80px;
+            height: 80px;
+        }
+        
+        .user-info { 
+            flex-direction: column; 
+            text-align: center;
+            gap: 16px;
+        }
         
         .stats-grid {
-            grid-template-columns: 1fr;
+            grid-template-columns: 1fr 1fr; /* 2 columns on mobile */
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .stat-card {
+            padding: 18px;
+        }
+        
+        .stat-number {
+            font-size: 2rem;
+        }
+        
+        .stat-label {
+            font-size: 0.75rem;
+        }
+        
+        .orders-section {
+            padding: 20px;
+        }
+        
+        .orders-section h2 {
+            font-size: 1.25rem;
+        }
+        
+        /* Make table scrollable horizontally on mobile */
+        .orders-table-wrapper {
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
         }
         
         .orders-table {
-            font-size: 0.9rem;
+            font-size: 0.85rem;
+            min-width: 600px; /* Force horizontal scroll */
         }
         
         .orders-table th,
         .orders-table td {
-            padding: 8px;
+            padding: 10px 8px;
+            white-space: nowrap;
         }
         
         .section-header {
             flex-direction: column;
             gap: 15px;
+            align-items: stretch;
+        }
+        
+        .btn-track {
+            padding: 4px 8px;
+            font-size: 0.75rem;
+        }
+        
+        .status-badge {
+            padding: 3px 8px;
+            font-size: 0.75rem;
+        }
+    }
+    
+    /* Very small screens (phones under 480px) */
+    @media (max-width: 480px) {
+        .dashboard-container {
+            padding: 60px 5px 15px 5px;
+        }
+        
+        .dashboard-hero {
+            border-radius: 12px;
+            min-height: 240px;
+        }
+        
+        .dashboard-hero h1 {
+            font-size: 1.2rem;
+        }
+        
+        .user-avatar {
+            width: 70px;
+            height: 70px;
+        }
+        
+        .stats-grid {
+            grid-template-columns: 1fr; /* Single column on very small screens */
+        }
+        
+        .empty-state {
+            padding: 40px 15px;
+        }
+        
+        .empty-state h3 {
+            font-size: 1.1rem;
         }
     }
 </style>
@@ -418,7 +576,7 @@
 <div class="dashboard-container">
     <section class="dashboard-hero {{ '' if current_user.enable_profile_video else 'video-disabled' }}" id="heroSection">
         {% if current_user.enable_profile_video %}
-        <video class="hero-video" autoplay muted loop playsinline preload="auto" 
+        <video class="hero-video" autoplay muted loop playsinline webkit-playsinline 
                onerror="this.style.display='none'; document.getElementById('heroSection').classList.add('video-disabled');">
             <source src="{{ url_for('static', filename='video/videoprofile.mp4') }}" type="video/mp4">
         </video>
@@ -492,8 +650,9 @@
         </div>
         
         {% if orders %}
-        <table class="orders-table">
-            <thead>
+        <div class="orders-table-wrapper">
+            <table class="orders-table">
+                <thead>
                 <tr>
                     <th>Order ID</th>
                     <th>Project</th>
@@ -538,6 +697,7 @@
                 {% endfor %}
             </tbody>
         </table>
+        </div>
         {% else %}
         <div class="empty-state">
             <div class="empty-state-icon">

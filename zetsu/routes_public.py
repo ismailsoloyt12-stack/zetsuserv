@@ -271,6 +271,12 @@ def track_order_auth():
         flash('Invalid Order ID. Please check and try again.', 'error')
         return render_template('track_login.html')
     
+    # CHECK IF ORDER IS STILL IN QUEUE
+    if request_obj.queue_position is not None and request_obj.queue_position > 0:
+        # Order is in queue - doesn't have tracking access yet
+        flash('This order is still in queue. You will receive tracking access when your turn arrives.', 'info')
+        return redirect(url_for('public.queue_status', request_id=request_id))
+    
     # Verify password
     if not request_obj.tracking_password:
         # For backward compatibility, if no password set, reject
@@ -327,6 +333,11 @@ def track_order(order_code):
     if generate_order_code(request_obj) != order_code:
         flash('Invalid order code', 'error')
         return redirect(url_for('public.index'))
+    
+    # CHECK IF ORDER IS STILL IN QUEUE
+    if request_obj.queue_position is not None and request_obj.queue_position > 0:
+        # Order is still in queue - redirect to queue status page
+        return redirect(url_for('public.queue_status', request_id=request_id))
     
     # Get progress steps
     progress_steps = request_obj.progress_steps.all()
@@ -474,11 +485,129 @@ def get_order_updates(order_code):
         'progress_updated': progress_updated
     })
 
+@public_bp.route('/api/send_code', methods=['POST'])
+def send_code():
+    """Send OTP verification code (FREE - via EMAIL)."""
+    try:
+        from zetsu.sms_service import otp_service
+        
+        data = request.get_json()
+        contact_info = data.get('contact')  # Can be phone or email
+        email = data.get('email')  # Explicit email if provided
+        phone = data.get('phone')  # Phone number
+        
+        # Prefer email if provided
+        primary_contact = email if email else contact_info
+        
+        if not primary_contact:
+            return jsonify({'success': False, 'error': 'Contact information required'}), 400
+        
+        # Store email in session for later use
+        if email:
+            session['user_email'] = email
+        
+        # Basic validation
+        primary_contact = primary_contact.strip()
+        if len(primary_contact) < 3:
+            return jsonify({'success': False, 'error': 'Invalid contact information'}), 400
+        
+        # Clean up any expired OTPs
+        otp_service.cleanup_expired()
+        
+        # Use phone as identifier but send to email if available
+        identifier = phone if phone else primary_contact
+        
+        # Send OTP (prioritizes email)
+        result = otp_service.send_otp(identifier, primary_contact)
+        
+        # Log for monitoring
+        current_app.logger.info(f'OTP sent to {contact_info} via {result.get("mode", "unknown")} mode')
+        
+        # Prepare response
+        response_data = {
+            'success': result['success'],
+            'message': result.get('message', 'Verification code sent'),
+            'mode': result.get('mode', 'unknown')
+        }
+        
+        # Include demo code only in console mode for testing
+        if result.get('mode') == 'console':
+            response_data['demo_code'] = result.get('demo_code')
+        
+        return jsonify(response_data)
+        
+    except Exception as e:
+        current_app.logger.error(f'Error sending OTP: {e}')
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+@public_bp.route('/api/verify_code', methods=['POST'])
+def verify_code():
+    """Verify OTP code."""
+    try:
+        from zetsu.sms_service import otp_service
+        
+        data = request.get_json()
+        code = data.get('code')
+        contact_info = data.get('contact')
+        
+        if not code or not contact_info:
+            return jsonify({'success': False, 'error': 'Code and contact information required'}), 400
+        
+        # Verify OTP using the new system
+        result = otp_service.verify_otp(contact_info, code)
+        
+        if result['success']:
+            # Mark as verified in session
+            session['otp_verified'] = True
+            session['verified_contact'] = contact_info
+            
+            return jsonify({
+                'success': True, 
+                'message': result.get('message', 'OTP verified successfully')
+            })
+        else:
+            return jsonify({
+                'success': False, 
+                'error': result.get('error', 'Verification failed')
+            }), 400
+            
+    except Exception as e:
+        current_app.logger.error(f'Error verifying OTP: {e}')
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+# Backward compatibility endpoints
+@public_bp.route('/api/phone-verification/send', methods=['POST'])
+def send_phone_verification():
+    """Backward compatibility endpoint for phone verification."""
+    data = request.get_json()
+    phone = data.get('phone', '')
+    # Forward to new endpoint
+    return send_code()
+
+@public_bp.route('/api/phone-verification/verify', methods=['POST'])
+def verify_phone_code():
+    """Backward compatibility endpoint for phone verification."""
+    data = request.get_json()
+    # Map old field names to new ones
+    new_data = {
+        'code': data.get('code'),
+        'contact': data.get('phone')
+    }
+    request.get_json = lambda: new_data
+    return verify_code()
+
 @public_bp.route('/api/chatbot-submit-order', methods=['POST'])
 def chatbot_submit_order():
-    """API endpoint for chatbot to submit orders - WITH QUEUE SYSTEM."""
+    """API endpoint for chatbot to submit orders - WITH QUEUE SYSTEM AND VERIFICATION."""
     try:
         data = request.get_json()
+        
+        # Check if order is verified (from multi-step form)
+        is_verified = data.get('verified', False)
+        
+        # Extract additional fields from verified form
+        website_for = data.get('website_for', '')
+        country = data.get('country', '')
         
         # If user is logged in, use their info
         if current_user.is_authenticated and isinstance(current_user, User):
@@ -491,6 +620,19 @@ def chatbot_submit_order():
             client_email = data.get('email', 'pending@zetsuserv.com')
             phone = data.get('phone', 'Pending')
             user_id = None
+        
+        # If verified order, ensure required fields
+        if is_verified:
+            if not all([website_for, country, phone != 'Pending']):
+                return jsonify({'success': False, 'error': 'Missing required verified information'}), 400
+            # Build enhanced details
+            details = f"Order submitted via AI Chat Assistant (Verified)\n\n"
+            details += f"Website For: {website_for}\n"
+            details += f"Country: {country}\n"
+            details += f"Phone: {phone}\n\n"
+            details += f"Project Details: {data.get('details', 'No additional details')}"
+        else:
+            details = f"Order submitted via AI Chat Assistant\n\n{data.get('details', 'No additional details')}"
         
         # CHECK QUEUE POSITION - CRITICAL FOR QUEUE SYSTEM
         # Count active orders (queue_position is None or 0)
@@ -519,11 +661,11 @@ def chatbot_submit_order():
             client_name=client_name,
             client_email=client_email,
             phone=phone,
-            project_title=data.get('title', 'New Project Request'),
+            project_title=data.get('title', data.get('projectName', 'New Project Request')),
             project_type=data.get('type', 'business').lower().replace(' ', '_'),
             pages_required=int(data.get('pages', 5)),
             budget=data.get('budget', '$1000-5000'),
-            details=f"Order submitted via AI Chat Assistant\n\n{data.get('details', 'No additional details')}",
+            details=details,
             status='new',
             queue_position=queue_pos  # SET QUEUE POSITION
         )
@@ -1102,9 +1244,13 @@ def create_default_progress_steps(request_obj):
 def send_message_notification_email(request_obj, message_content):
     """Send email notification for new message."""
     try:
-        from flask_mail import Message, Mail
+        from flask_mail import Message
+        from zetsu import mail
         
-        mail = Mail(current_app)
+        # Check if mail is available
+        if not mail:
+            current_app.logger.warning('Mail extension not initialized')
+            return
         
         username = current_app.config.get('MAIL_USERNAME')
         if not username:
@@ -1139,9 +1285,13 @@ def send_message_notification_email(request_obj, message_content):
 def send_tracking_code_email(request_obj, tracking_code, tracking_password=None):
     """Send tracking code and password to client."""
     try:
-        from flask_mail import Message, Mail
+        from flask_mail import Message
+        from zetsu import mail
         
-        mail = Mail(current_app)
+        # Check if mail is available
+        if not mail:
+            current_app.logger.warning('Mail extension not initialized')
+            return
         
         username = current_app.config.get('MAIL_USERNAME')
         if not username:
@@ -1519,8 +1669,14 @@ def generate_tracking_password():
 def send_queue_activation_email(request_obj, tracking_code, tracking_password=None):
     """Send email when user's turn arrives in queue with access key."""
     try:
-        from flask_mail import Message as MailMessage, Mail
-        mail = Mail(current_app)
+        from flask_mail import Message as MailMessage
+        from zetsu import mail
+        
+        # Check if mail is available
+        if not mail:
+            current_app.logger.warning('Mail extension not initialized')
+            return
+        
         username = current_app.config.get('MAIL_USERNAME')
         if not username:
             current_app.logger.warning('MAIL_USERNAME not configured; cannot send queue activation email')
@@ -1586,8 +1742,14 @@ def send_queue_activation_email(request_obj, tracking_code, tracking_password=No
 def send_verification_code_email(user, code):
     """Send the email verification code to the user's email address."""
     try:
-        from flask_mail import Message as MailMessage, Mail
-        mail = Mail(current_app)
+        from flask_mail import Message as MailMessage
+        from zetsu import mail
+        
+        # Check if mail is available
+        if not mail:
+            current_app.logger.warning('Mail extension not initialized')
+            return
+        
         username = current_app.config.get('MAIL_USERNAME')
         if not username:
             current_app.logger.warning('MAIL_USERNAME not configured; cannot send verification email')
@@ -1605,29 +1767,35 @@ def send_verification_code_email(user, code):
 
         # Split code into spaced digits for visual emphasis
         spaced_code = ' '.join(list(code))
-        verification_url = url_for('public.verify_email', _external=True)
+        
+        # Generate verification URL - handle cases where we're outside request context
+        try:
+            verification_url = url_for('public.verify_email', _external=True)
+        except:
+            # Fallback URL if we're outside request context
+            verification_url = 'http://127.0.0.1:5000/verify'
 
         msg.html = f"""
-        <div style=\"font-family: Inter, Arial, sans-serif; max-width: 640px; margin: 0 auto; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px;\">
-            <div style=\"padding: 28px; background: #0ea5e9; color: white; border-radius: 12px 12px 0 0;\">
-                <h2 style=\"margin: 0; font-weight: 700;\">Verify your email</h2>
-                <p style=\"margin: 6px 0 0; opacity: 0.95;\">From the ZetsuServ Team</p>
+        <div style="font-family: Inter, Arial, sans-serif; max-width: 640px; margin: 0 auto; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 12px;">
+            <div style="padding: 28px; background: #0ea5e9; color: white; border-radius: 12px 12px 0 0;">
+                <h2 style="margin: 0; font-weight: 700;">Verify your email</h2>
+                <p style="margin: 6px 0 0; opacity: 0.95;">From the ZetsuServ Team</p>
             </div>
-            <div style=\"padding: 24px;\">
-                <p style=\"color: #0f172a; font-size: 16px;\">Hi {user.full_name or user.username},</p>
-                <p style=\"color: #334155;\">Thanks for creating your account. Please enter the following 6-digit verification code to activate your account:</p>
-                <div style=\"margin: 18px 0; text-align: center;\">
-                    <div style=\"display: inline-block; padding: 14px 20px; font-size: 28px; font-weight: 800; letter-spacing: 10px; color: #111827; background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 10px;\">{spaced_code}</div>
+            <div style="padding: 24px;">
+                <p style="color: #0f172a; font-size: 16px;">Hi {user.full_name or user.username},</p>
+                <p style="color: #334155;">Thanks for creating your account. Please enter the following 6-digit verification code to activate your account:</p>
+                <div style="margin: 18px 0; text-align: center;">
+                    <div style="display: inline-block; padding: 14px 20px; font-size: 28px; font-weight: 800; letter-spacing: 10px; color: #111827; background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 10px;">{spaced_code}</div>
                 </div>
-                <p style=\"color: #475569;\">This code expires in <strong>10 minutes</strong>. For your security, do not share it with anyone.</p>
-                <p style=\"color: #475569; margin-top: 12px;\">If you are ready, open the verification page and enter the code:</p>
-                <p style=\"margin-top: 8px; text-align: center;\">
-                    <a href=\"{verification_url}\" style=\"display: inline-block; padding: 12px 20px; background: #0ea5e9; color: white; text-decoration: none; border-radius: 8px; font-weight: 600;\">Open Verification Page</a>
+                <p style="color: #475569;">This code expires in <strong>10 minutes</strong>. For your security, do not share it with anyone.</p>
+                <p style="color: #475569; margin-top: 12px;">If you are ready, open the verification page and enter the code:</p>
+                <p style="margin-top: 8px; text-align: center;">
+                    <a href="{verification_url}" style="display: inline-block; padding: 12px 20px; background: #0ea5e9; color: white; text-decoration: none; border-radius: 8px; font-weight: 600;">Open Verification Page</a>
                 </p>
-                <hr style=\"margin: 24px 0; border: none; border-top: 1px solid #e2e8f0;\">
-                <p style=\"color: #64748b; font-size: 13px;\">Didn’t create this account? You can safely ignore this email.</p>
-                <p style=\"color: #0f172a; font-size: 14px; margin-top: 16px;\"><strong>— The ZetsuServ Team</strong><br>
-                <span style=\"color:#64748b;\">Support: support@zetsuserv.com</span></p>
+                <hr style="margin: 24px 0; border: none; border-top: 1px solid #e2e8f0;">
+                <p style="color: #64748b; font-size: 13px;">Didn't create this account? You can safely ignore this email.</p>
+                <p style="color: #0f172a; font-size: 14px; margin-top: 16px;"><strong>— The ZetsuServ Team</strong><br>
+                <span style="color:#64748b;">Support: support@zetsuserv.com</span></p>
             </div>
         </div>
         """

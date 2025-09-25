@@ -1,9 +1,19 @@
 import os
+import sys
+
+# Add the project directory to the Python path for PythonAnywhere
+project_home = os.path.dirname(os.path.abspath(__file__))
+if project_home not in sys.path:
+    sys.path.insert(0, project_home)
+
 from zetsu import create_app, db
 from zetsu.models import AdminUser
 import bcrypt
 
-app = create_app(os.getenv('FLASK_ENV', 'default'))
+# Create the Flask app with appropriate configuration
+flask_env = os.getenv('FLASK_ENV', 'production')
+app = create_app(flask_env)
+application = app  # For WSGI servers like PythonAnywhere
 
 @app.cli.command()
 def init_db():
@@ -148,5 +158,11 @@ def send_test_email():
         except Exception as e:
             print('Failed to send test email:', e)
 
+# Development server (not used in production)
 if __name__ == '__main__':
-    app.run(debug=True, host='0.0.0.0', port=5000)
+    # Only run in development mode
+    if app.config.get('DEBUG', False):
+        app.run(debug=True, host='127.0.0.1', port=5000)
+    else:
+        print("This script should not be run directly in production.")
+        print("Use a WSGI server like gunicorn or PythonAnywhere's built-in server.")

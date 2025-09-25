@@ -16,6 +16,9 @@
     <!-- Tailwind CSS for Chatbot -->
     <script src="https://cdn.tailwindcss.com"></script>
     
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
     <!-- Main CSS -->
     <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
     
@@ -35,6 +38,13 @@
                     <a href="{{ url_for('public.index') }}#services" class="nav-link">Services</a>
                     <a href="{{ url_for('public.index') }}#pricing" class="nav-link">Pricing</a>
                     <a href="{{ url_for('public.index') }}#testimonials" class="nav-link">Testimonials</a>
+                    {% if not current_user.is_authenticated %}
+                    <a href="{{ url_for('public.user_login') }}" class="nav-link">Login</a>
+                    <a href="{{ url_for('public.user_register') }}" class="nav-link">Register</a>
+                    {% else %}
+                    <a href="{{ url_for('public.user_dashboard') }}" class="nav-link">Dashboard</a>
+                    <a href="{{ url_for('public.user_logout') }}" class="nav-link">Logout</a>
+                    {% endif %}
                     <a href="{{ url_for('public.request_service') }}" class="nav-link nav-cta">Request Service</a>
                 </div>
                 
@@ -54,6 +64,13 @@
         <a href="{{ url_for('public.index') }}#services" class="mobile-link">Services</a>
         <a href="{{ url_for('public.index') }}#pricing" class="mobile-link">Pricing</a>
         <a href="{{ url_for('public.index') }}#testimonials" class="mobile-link">Testimonials</a>
+        {% if not current_user.is_authenticated %}
+        <a href="{{ url_for('public.user_login') }}" class="mobile-link">Login</a>
+        <a href="{{ url_for('public.user_register') }}" class="mobile-link">Register</a>
+        {% else %}
+        <a href="{{ url_for('public.user_dashboard') }}" class="mobile-link">Dashboard</a>
+        <a href="{{ url_for('public.user_logout') }}" class="mobile-link">Logout</a>
+        {% endif %}
         <a href="{{ url_for('public.request_service') }}" class="mobile-link mobile-cta">Request Service</a>
     </div>
     

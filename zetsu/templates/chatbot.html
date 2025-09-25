@@ -123,6 +123,10 @@ document.addEventListener('DOMContentLoaded', () => {
     let isBotTyping = false;
     let chatHistory = [];
     let collectedOrderData = {};
+    let isFormActive = false;
+    let phoneVerificationCode = null;
+    let awaitingPhoneVerification = false;
+    let orderIntentDetected = false;
     
     // Get current user email if logged in
     const current_user_email = {% if current_user.is_authenticated and current_user.email %}'{{ current_user.email }}'{% else %}null{% endif %};
@@ -137,42 +141,429 @@ IMPORTANT CONTEXT:
 ${current_user_email ? `The user is already logged in with email: ${current_user_email}` : 'The user is not logged in.'}
 
 IMPORTANT RULES:
-1. When someone says they want to order/build a website, DON'T ask many questions.
-2. Be smart - extract information from what they already told you.
-3. If user is logged in, DON'T ASK FOR EMAIL - you already have it!
-4. Submit orders QUICKLY with minimal back-and-forth.
+1. When someone wants to order a website, you MUST collect additional information through the form.
+2. DO NOT submit orders immediately - always request more information first.
+3. Be conversational but guide users through the proper order process.
 
 WHEN SOMEONE WANTS TO ORDER:
-- If they say "I want a website" or similar:
-  * If logged in: Immediately confirm and submit the order
-  * If not logged in: Ask ONLY for email
-- Extract what you can from their message:
-  * If they mention their business type, use that as project title
-  * If they say "landing page" use type: "landing"
-  * If they say "e-commerce" or "shop" use type: "ecommerce" 
-  * Otherwise use type: "business"
-  * Use reasonable defaults (5 pages, $1000-5000 budget)
-- Submit format:
-[ACTION:SUBMIT_ORDER_V1]{"name":"Client", "email":"${current_user_email || 'their_email'}", "phone":"To be provided", "title":"their_project", "type":"business", "pages":"5", "budget":"$1000-5000", "details":"what_they_said"}
+- If they express interest in ordering (e.g., "I want a website", "I need a website for...", etc.):
+  * Respond positively and tell them you need more information
+  * Use [ACTION:SHOW_ORDER_FORM] to display the information collection form
+  * DO NOT submit the order until the form is completed
 
-EXAMPLE FOR LOGGED IN USER:
-User: "I need a website for my restaurant"
-You: "Perfect! I'll submit your restaurant website order right away using your account email."
-[ACTION:SUBMIT_ORDER_V1]{"name":"User", "email":"${current_user_email}", "phone":"To be provided", "title":"Restaurant Website", "type":"business", "pages":"5", "budget":"$1000-5000", "details":"Client needs a website for their restaurant"}
+EXAMPLE:
+User: "I want a website for gamehub"
+You: "Of course! I'd be happy to help you create a website for GameHub. But first, I need to collect some additional information to process your order properly."
+[ACTION:SHOW_ORDER_FORM]
 
-EXAMPLE FOR GUEST:
-User: "I need a website for my restaurant"
-You: "Excellent! I'll help you create a website for your restaurant. Just need your email to send the order confirmation."
-User: "john@email.com"
-You: [ACTION:SUBMIT_ORDER_V1]{"name":"John", "email":"john@email.com", "phone":"To be provided", "title":"Restaurant Website", "type":"business", "pages":"5", "budget":"$1000-5000", "details":"Client needs a website for their restaurant"}
+AFTER FORM SUBMISSION:
+- When you receive [FORM_COMPLETED] with the data, validate it
+- If phone verification is needed, use [ACTION:VERIFY_PHONE]
+- Once all validation passes, submit with [ACTION:SUBMIT_ORDER_V2]
 
-BE SMART:
-- Don't ask questions if you can infer the answer
-- Use defaults for non-critical information
-- Submit orders quickly
-- Be helpful but efficient
-- Act like a smart AI, not a form-filling robot`;
+NEVER:
+- Submit orders without collecting the form information
+- Skip the verification steps
+- Process orders immediately upon request
 
+BE HELPFUL:
+- Explain why you need the information
+- Guide users through each step
+- Ensure data quality before submission`;
+
+    /**
+     * Show order information form
+     */
+    function showOrderForm() {
+        if (isFormActive) return;
+        isFormActive = true;
+        
+        const formHtml = `
+            <div class="order-form-container p-4 bg-blue-50 rounded-lg border border-blue-200 mt-3">
+                <h4 class="font-semibold text-blue-900 mb-3">Please provide the following information:</h4>
+                <form id="order-info-form" class="space-y-3">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">
+                            1. For whom is this website?
+                        </label>
+                        <div class="space-y-2">
+                            <label class="flex items-center">
+                                <input type="radio" name="website_for" value="company" class="mr-2" required>
+                                <span>Company</span>
+                            </label>
+                            <label class="flex items-center">
+                                <input type="radio" name="website_for" value="individual" class="mr-2" required>
+                                <span>Individual</span>
+                            </label>
+                            <label class="flex items-center">
+                                <input type="radio" name="website_for" value="other" class="mr-2" required>
+                                <span>Something else</span>
+                            </label>
+                            <input type="text" id="website_for_other" name="website_for_other" 
+                                   placeholder="Please specify..." 
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md hidden"
+                                   style="display: none;">
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <label for="country" class="block text-sm font-medium text-gray-700 mb-1">
+                            2. Where are you from?
+                        </label>
+                        <input type="text" id="country" name="country" 
+                               placeholder="Enter your country" 
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+                               required>
+                    </div>
+                    
+                    <div>
+                        <label for="phone" class="block text-sm font-medium text-gray-700 mb-1">
+                            3. What is your phone number?
+                        </label>
+                        <input type="tel" id="phone" name="phone" 
+                               placeholder="+1234567890" 
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+                               required>
+                    </div>
+                    
+                    <div>
+                        <label for="email" class="block text-sm font-medium text-gray-700 mb-1">
+                            4. What is your email? (for verification code)
+                        </label>
+                        <input type="email" id="email" name="email" 
+                               placeholder="your@email.com" 
+                               class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500"
+                               ${current_user_email ? `value="${current_user_email}"` : ''}
+                               required>
+                        <small class="text-gray-500">We'll send the verification code to your email</small>
+                    </div>
+                    
+                    <button type="submit" class="w-full bg-blue-600 text-white py-2 px-4 rounded-md hover:bg-blue-700 transition-colors">
+                        Submit Information
+                    </button>
+                </form>
+            </div>
+        `;
+        
+        const messageWrapper = document.createElement('div');
+        messageWrapper.className = 'flex justify-start';
+        messageWrapper.innerHTML = formHtml;
+        chatMessages.appendChild(messageWrapper);
+        smartScrollToBottom();
+        
+        // Setup form event listeners
+        setTimeout(() => {
+            const form = document.getElementById('order-info-form');
+            const websiteForRadios = form.querySelectorAll('input[name="website_for"]');
+            const otherInput = document.getElementById('website_for_other');
+            
+            // Handle radio button change
+            websiteForRadios.forEach(radio => {
+                radio.addEventListener('change', (e) => {
+                    if (e.target.value === 'other') {
+                        otherInput.style.display = 'block';
+                        otherInput.required = true;
+                    } else {
+                        otherInput.style.display = 'none';
+                        otherInput.required = false;
+                        otherInput.value = '';
+                    }
+                });
+            });
+            
+            // Handle form submission
+            form.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                
+                const formData = new FormData(form);
+                const websiteFor = formData.get('website_for');
+                const websiteForValue = websiteFor === 'other' ? formData.get('website_for_other') : websiteFor;
+                const email = formData.get('email');
+                
+                collectedOrderData = {
+                    ...collectedOrderData,
+                    website_for: websiteForValue,
+                    country: formData.get('country'),
+                    phone: formData.get('phone'),
+                    email: email
+                };
+                
+                // Store email in session for OTP delivery
+                sessionStorage.setItem('user_email', email);
+                
+                // Disable form
+                form.querySelectorAll('input, button').forEach(el => el.disabled = true);
+                
+                // Show detecting effect
+                showDetectingAnimation();
+                
+                // Send verification code
+                await sendPhoneVerification(collectedOrderData.phone);
+            });
+        }, 100);
+    }
+    
+    /**
+     * Show detecting animation
+     */
+    function showDetectingAnimation() {
+        const animationHtml = `
+            <div class="flex justify-start mt-3">
+                <div class="max-w-xs md:max-w-sm px-4 py-3 rounded-2xl shadow-sm bg-gray-100 text-slate-800 rounded-bl-lg">
+                    <div class="flex items-center space-x-2">
+                        <div class="animate-spin rounded-full h-5 w-5 border-b-2 border-blue-600"></div>
+                        <span class="text-sm font-medium">Detecting and validating information...</span>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        const messageWrapper = document.createElement('div');
+        messageWrapper.innerHTML = animationHtml;
+        messageWrapper.id = 'detecting-animation';
+        chatMessages.appendChild(messageWrapper);
+        smartScrollToBottom();
+        
+        setTimeout(() => {
+            const detectingEl = document.getElementById('detecting-animation');
+            if (detectingEl) detectingEl.remove();
+        }, 2000);
+    }
+    
+    /**
+     * Send phone verification
+     */
+    async function sendPhoneVerification(phoneNumber) {
+        try {
+            // Prefer email if available, otherwise use phone
+            const contactToUse = collectedOrderData.email || phoneNumber;
+            
+            // Send OTP request to backend (FREE - sends to EMAIL!)
+            const response = await fetch('/api/send_code', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest'
+                },
+                body: JSON.stringify({ 
+                    contact: contactToUse,
+                    email: collectedOrderData.email,  // Send email explicitly
+                    phone: phoneNumber
+                })
+            });
+            
+            if (response.ok) {
+                const data = await response.json();
+                
+                // Store the code for console mode (remove in production)
+                if (data.demo_code) {
+                    phoneVerificationCode = data.demo_code;
+                    console.log(`\n🔐 OTP Code for ${phoneNumber}: ${phoneVerificationCode}\n`);
+                }
+                
+                awaitingPhoneVerification = true;
+                
+                // Show appropriate message based on mode
+                if (data.mode === 'email' || collectedOrderData.email) {
+                    addBotMessageWithTypingEffect(`📧 Verification code sent to ${collectedOrderData.email}! Check your email inbox.`, 50);
+                } else {
+                    addBotMessageWithTypingEffect('🔐 Check your console for the FREE OTP code (no SMS costs!)', 50);
+                }
+                
+                setTimeout(() => {
+                    showPhoneVerificationForm();
+                }, 2000);
+            } else {
+                addBotMessageWithTypingEffect('❌ Failed to send OTP code. Please try again.', 50);
+            }
+        } catch (error) {
+            console.error('Error sending OTP:', error);
+            addBotMessageWithTypingEffect('❌ Error sending OTP code. Please try again.', 50);
+        }
+    }
+    
+    /**
+     * Show phone verification form
+     */
+    function showPhoneVerificationForm() {
+        const verificationHtml = `
+            <div class="flex justify-start">
+                <div class="max-w-xs md:max-w-sm">
+                    <div class="px-4 py-2 rounded-2xl shadow-sm bg-slate-200 text-slate-800 rounded-bl-lg mb-2">
+                        ✅ Information validated! Check your email for the verification code.
+                    </div>
+                    <div class="verification-form-container p-4 bg-yellow-50 rounded-lg border border-yellow-200">
+                        <h4 class="font-semibold text-yellow-900 mb-3">Enter Verification Code:</h4>
+                        <form id="verification-form" class="space-y-3">
+                            <input type="text" id="verification-code" name="verification_code" 
+                                   placeholder="Enter 6-digit code" 
+                                   maxlength="6"
+                                   class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-yellow-500 text-center text-lg font-mono"
+                                   required>
+                            <button type="submit" class="w-full bg-yellow-600 text-white py-2 px-4 rounded-md hover:bg-yellow-700 transition-colors">
+                                Verify Code
+                            </button>
+                            <div class="text-sm text-gray-600 text-center">
+                                <button type="button" id="resend-code" class="text-blue-600 hover:underline">
+                                    Didn't receive code? Resend
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        const messageWrapper = document.createElement('div');
+        messageWrapper.innerHTML = verificationHtml;
+        chatMessages.appendChild(messageWrapper);
+        smartScrollToBottom();
+        
+        // Setup verification form listeners
+        setTimeout(() => {
+            const verificationForm = document.getElementById('verification-form');
+            const resendBtn = document.getElementById('resend-code');
+            
+            verificationForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const code = document.getElementById('verification-code').value;
+                
+                try {
+                    // Verify OTP with backend (FREE system)
+                    const response = await fetch('/api/verify_code', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-Requested-With': 'XMLHttpRequest'
+                        },
+                        body: JSON.stringify({
+                            contact: collectedOrderData.phone,
+                            code: code
+                        })
+                    });
+                    
+                    if (response.ok) {
+                        // Verification successful
+                        verificationForm.querySelectorAll('input, button').forEach(el => el.disabled = true);
+                        awaitingPhoneVerification = false;
+                        
+                        // Show success
+                        addBotMessageWithTypingEffect('✅ Phone verified successfully! Now let me gather more details about your project.', 50);
+                        
+                        // Ask for more project details
+                        setTimeout(() => {
+                            askForProjectDetails();
+                        }, 2000);
+                    } else {
+                        // Invalid code
+                        document.getElementById('verification-code').classList.add('border-red-500');
+                        addBotMessageWithTypingEffect('❌ Invalid verification code. Please try again.', 50);
+                    }
+                } catch (error) {
+                    console.error('Error verifying code:', error);
+                    addBotMessageWithTypingEffect('❌ Error verifying code. Please try again.', 50);
+                }
+            });
+            
+            resendBtn.addEventListener('click', async () => {
+                try {
+                    const response = await fetch('/api/send_code', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-Requested-With': 'XMLHttpRequest'
+                        },
+                        body: JSON.stringify({ contact: collectedOrderData.phone })
+                    });
+                    
+                    if (response.ok) {
+                        const data = await response.json();
+                        phoneVerificationCode = data.demo_code;
+                        console.log(`New verification code: ${phoneVerificationCode}`);
+                        addBotMessageWithTypingEffect('📱 A new verification code has been sent to your phone.', 50);
+                    } else {
+                        addBotMessageWithTypingEffect('❌ Failed to resend code. Please try again.', 50);
+                    }
+                } catch (error) {
+                    console.error('Error resending code:', error);
+                    addBotMessageWithTypingEffect('❌ Error resending code. Please try again.', 50);
+                }
+            });
+        }, 100);
+    }
+    
+    /**
+     * Ask for more project details
+     */
+    function askForProjectDetails() {
+        const detailsHtml = `
+            <div class="flex justify-start">
+                <div class="max-w-xs md:max-w-sm">
+                    <div class="px-4 py-2 rounded-2xl shadow-sm bg-slate-200 text-slate-800 rounded-bl-lg mb-2">
+                        Hi ${collectedOrderData.name || 'there'}! Can you please give us more information about your order?
+                    </div>
+                    <div class="details-form-container p-4 bg-green-50 rounded-lg border border-green-200">
+                        <form id="project-details-form" class="space-y-3">
+                            <textarea id="project-details" name="project_details" 
+                                      placeholder="Describe your project in detail..." 
+                                      rows="4"
+                                      class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-green-500"
+                                      required></textarea>
+                            <button type="submit" class="w-full bg-green-600 text-white py-2 px-4 rounded-md hover:bg-green-700 transition-colors">
+                                Submit Details
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        const messageWrapper = document.createElement('div');
+        messageWrapper.innerHTML = detailsHtml;
+        chatMessages.appendChild(messageWrapper);
+        smartScrollToBottom();
+        
+        // Setup details form listener
+        setTimeout(() => {
+            const detailsForm = document.getElementById('project-details-form');
+            
+            detailsForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                
+                collectedOrderData.details = document.getElementById('project-details').value;
+                detailsForm.querySelectorAll('textarea, button').forEach(el => el.disabled = true);
+                
+                // Final confirmation
+                addBotMessageWithTypingEffect('Perfect! Let me confirm your order details...', 50);
+                
+                setTimeout(() => {
+                    finalizeOrder();
+                }, 2000);
+            });
+        }, 100);
+    }
+    
+    /**
+     * Finalize and submit order
+     */
+    async function finalizeOrder() {
+        // Submit the complete order
+        const orderData = {
+            ...collectedOrderData,
+            email: current_user_email || collectedOrderData.email || 'pending@zetsuserv.com',
+            name: collectedOrderData.name || 'Client',
+            verified: true
+        };
+        
+        const success = await submitOrderToBackend(orderData);
+        
+        if (success) {
+            isFormActive = false;
+            orderIntentDetected = false;
+            collectedOrderData = {};
+        }
+    }
+    
     /**
      * Submit order to backend
      */
@@ -289,46 +680,85 @@ BE SMART:
         }
     }
 
-    async function callGeminiAPI() {
-        try {
-            const payload = {
-                contents: chatHistory,
-                systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
-                generationConfig: {
-                    temperature: 0.7,
-                    maxOutputTokens: 1024,
-                }
-            };
+    /**
+     * Smart local AI that handles conversations without external API calls
+     */
+    async function getSmartAIResponse() {
+        const lastUserMessage = chatHistory[chatHistory.length - 1]?.parts[0]?.text?.toLowerCase() || '';
+        const userName = current_user_email ? current_user_email.split('@')[0] : 'there';
+        
+        // Check if user is asking for a website/order
+        const orderKeywords = ['website', 'web', 'site', 'page', 'build', 'create', 'design', 'develop', 'landing', 'ecommerce', 'shop', 'blog', 'portfolio', 'business'];
+        const wantsOrder = orderKeywords.some(keyword => lastUserMessage.includes(keyword));
+        const hasOrderIntent = lastUserMessage.includes('want') || lastUserMessage.includes('need') || lastUserMessage.includes('looking for');
+        
+        if ((wantsOrder && hasOrderIntent) || lastUserMessage.includes('order') || lastUserMessage.includes('request')) {
+            // User wants to order something
+            const projectName = extractProjectName(lastUserMessage);
+            let response = '';
             
-            const response = await fetch(API_URL, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(payload)
-            });
-            
-            if (!response.ok) {
-                const errorData = await response.json();
-                console.error("API Error:", errorData);
-                throw new Error(`API error: ${response.statusText}`);
+            if (projectName) {
+                response = `Of course! I'd be happy to help you create a website for ${projectName}. But first, I need to collect some additional information to process your order properly.`;
+            } else {
+                response = `Perfect! I'll help you create an amazing website. But first, I need to collect some additional information to process your order properly.`;
             }
             
-            const result = await response.json();
-            if (result.candidates && result.candidates.length > 0) {
-                return result.candidates[0].content.parts[0].text;
-            } else if (result.promptFeedback && result.promptFeedback.blockReason) {
-                return `I apologize, but I can't respond to that. Please ask about our web development services.`;
-            }
-            return "I'm sorry, I couldn't generate a response. Please try again.";
-        } catch (error) {
-            console.error("Gemini API call failed:", error);
-            // Fallback responses
-            const fallbackResponses = [
-                "I'm here to help you create an amazing website! What kind of website are you looking for?",
-                "We offer professional web development services. Would you like to submit a project request?",
-                "Tell me about your website needs, and I'll help you get started right away!"
-            ];
-            return fallbackResponses[Math.floor(Math.random() * fallbackResponses.length)];
+            response += '\n\n[ACTION:SHOW_ORDER_FORM]';
+            return response;
         }
+        
+        // Greeting responses
+        if (lastUserMessage.includes('hello') || lastUserMessage.includes('hi') || lastUserMessage.includes('hey')) {
+            return `Hello ${userName}! 👋 I'm your ZetsuServ AI assistant. I'm here to help you create an amazing website! What kind of project do you have in mind?`;
+        }
+        
+        // Thanks responses
+        if (lastUserMessage.includes('thank') || lastUserMessage.includes('thanks')) {
+            return `You're very welcome! 😊 Is there anything else I can help you with today?`;
+        }
+        
+        // Pricing questions
+        if (lastUserMessage.includes('price') || lastUserMessage.includes('cost') || lastUserMessage.includes('how much')) {
+            return `Our pricing varies based on your specific needs! We offer packages starting from $500 for simple landing pages up to $5000+ for complex e-commerce sites. Would you like to tell me about your project so I can give you a more accurate estimate?`;
+        }
+        
+        // Services questions
+        if (lastUserMessage.includes('service') || lastUserMessage.includes('do you do') || lastUserMessage.includes('offer')) {
+            return `We offer a full range of web development services including:\n\n✨ Landing Pages\n🏢 Business Websites\n🛒 E-commerce Stores\n📱 Mobile-Responsive Design\n🔧 Custom Features\n\nWhat type of website are you interested in?`;
+        }
+        
+        // Default helpful response
+        const helpfulResponses = [
+            `I'm here to help you create an amazing website! What kind of project do you have in mind? 🌟`,
+            `Great to chat with you! Are you looking to build a website? I can help you get started right away! 🚀`,
+            `I'd love to help you with your web development needs! What can I create for you today? 💻`,
+            `Hi there! Ready to bring your website vision to life? Tell me what you're looking for! ✨`
+        ];
+        
+        return helpfulResponses[Math.floor(Math.random() * helpfulResponses.length)];
+    }
+    
+    /**
+     * Extract project name from user message
+     */
+    function extractProjectName(message) {
+        // Look for patterns like "for [name]" or "called [name]"
+        const patterns = [
+            /for\s+([\w\s]+?)(?:\.|$|,|\s+website|\s+site|\s+page)/i,
+            /called\s+([\w\s]+?)(?:\.|$|,|\s+website|\s+site|\s+page)/i,
+            /named\s+([\w\s]+?)(?:\.|$|,|\s+website|\s+site|\s+page)/i,
+            /\"([^\"]+)\"/,
+            /'([^']+)'/
+        ];
+        
+        for (const pattern of patterns) {
+            const match = message.match(pattern);
+            if (match && match[1]) {
+                return match[1].trim();
+            }
+        }
+        
+        return null;
     }
     
     const smartScrollToBottom = () => {
@@ -457,10 +887,44 @@ BE SMART:
         indicatorText.textContent = 'Thinking';
         smartScrollToBottom();
         
-        let botReply = await callGeminiAPI();
+        // Use smart local AI instead of external API
+        let botReply = await getSmartAIResponse();
 
-        // Check for order submission action
-        const actionRegex = /\[ACTION:SUBMIT_ORDER_V1\]({.*})/;
+        // Check for show order form action
+        const showFormRegex = /\[ACTION:SHOW_ORDER_FORM\]/;
+        const showFormMatch = botReply.match(showFormRegex);
+        
+        if (showFormMatch) {
+            // Clean the reply
+            botReply = botReply.replace(showFormRegex, '').trim();
+            
+            // Store initial order context
+            const userLastMessage = chatHistory[chatHistory.length - 1]?.parts[0]?.text || '';
+            collectedOrderData.initialRequest = userLastMessage;
+            
+            // Extract project name if mentioned
+            const projectMatch = userLastMessage.match(/for\s+([\w\s]+?)(?:\.|$|,)/i);
+            if (projectMatch) {
+                collectedOrderData.projectName = projectMatch[1].trim();
+            }
+            
+            chatHistory.push({ role: 'model', parts: [{ text: botReply }] });
+            
+            indicatorText.textContent = 'Writing';
+            setTimeout(() => {
+                typingIndicator.style.display = 'none';
+                addBotMessageWithTypingEffect(botReply);
+                // Show the form after the message
+                setTimeout(() => {
+                    showOrderForm();
+                }, 1500);
+            }, 500);
+            
+            return;
+        }
+
+        // Check for old submission action (backward compatibility)
+        const actionRegex = /\[ACTION:SUBMIT_ORDER_V[12]\]({.*})/;
         const actionMatch = botReply.match(actionRegex);
 
         if (actionMatch) {

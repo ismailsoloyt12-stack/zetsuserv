@@ -2,14 +2,30 @@ import os
 from dotenv import load_dotenv
 
 basedir = os.path.abspath(os.path.dirname(__file__))
-load_dotenv(os.path.join(basedir, '.env'))
+
+# Load environment variables from .env file
+env_path = os.path.join(basedir, '.env')
+if os.path.exists(env_path):
+    load_dotenv(env_path)
 
 class Config:
     """Base configuration."""
     SECRET_KEY = os.environ.get('SECRET_KEY') or 'dev-secret-key-please-change-in-production'
-    SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL') or \
-        'sqlite:///' + os.path.join(basedir, 'zetsuserv.db')
+    
+    # Database configuration - PythonAnywhere uses MySQL by default
+    if os.environ.get('DATABASE_URL'):
+        SQLALCHEMY_DATABASE_URI = os.environ.get('DATABASE_URL')
+    else:
+        # Use SQLite for local development
+        db_path = os.path.join(basedir, 'instance', 'zetsuserv.db')
+        os.makedirs(os.path.dirname(db_path), exist_ok=True)
+        SQLALCHEMY_DATABASE_URI = 'sqlite:///' + db_path
+    
     SQLALCHEMY_TRACK_MODIFICATIONS = False
+    SQLALCHEMY_ENGINE_OPTIONS = {
+        'pool_pre_ping': True,
+        'pool_recycle': 280,
+    }
     
     # Mail settings
     MAIL_SERVER = os.environ.get('MAIL_SERVER', 'smtp.gmail.com')
@@ -23,6 +39,9 @@ class Config:
     # Upload settings
     MAX_CONTENT_LENGTH = int(os.environ.get('MAX_CONTENT_LENGTH', 16 * 1024 * 1024))  # 16MB max file size
     UPLOAD_FOLDER = os.path.join(basedir, 'zetsu', 'static', 'uploads')
+    # Ensure upload folder exists
+    os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+    os.makedirs(os.path.join(UPLOAD_FOLDER, 'avatars'), exist_ok=True)
     ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'pdf', 'zip', 'docx', 'doc'}
     
     # Admin settings
@@ -41,6 +60,18 @@ class ProductionConfig(Config):
     """Production configuration."""
     DEBUG = False
     TESTING = False
+    
+    # Force HTTPS in production (PythonAnywhere handles SSL)
+    SESSION_COOKIE_SECURE = True
+    SESSION_COOKIE_HTTPONLY = True
+    SESSION_COOKIE_SAMESITE = 'Lax'
+    PERMANENT_SESSION_LIFETIME = 3600  # 1 hour
+    
+    # Use stronger key derivation in production
+    BCRYPT_LOG_ROUNDS = 13
+    
+    # Disable Flask debug toolbar in production
+    DEBUG_TB_ENABLED = False
 
 class TestingConfig(Config):
     """Testing configuration."""
