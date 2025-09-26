@@ -7,6 +7,9 @@ basedir = os.path.abspath(os.path.dirname(__file__))
 env_path = os.path.join(basedir, '.env')
 if os.path.exists(env_path):
     load_dotenv(env_path)
+    print(f"Loaded .env from: {env_path}")
+else:
+    print(f"No .env file found at: {env_path}")
 
 class Config:
     """Base configuration."""

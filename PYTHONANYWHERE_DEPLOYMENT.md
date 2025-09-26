@@ -317,3 +317,7 @@ mysqldump -u yourusername -p'yourpassword' -h yourusername.mysql.pythonanywhere-
 - Site goes to sleep after 3 months of inactivity on free tier
 - Always test changes in development before deploying
 - Keep your `.env` file secure and never commit it to Git
+
+
+
+e7041cf81778b2b868ce1aef5329e08d456bbb51ce2970a764af99f9fe8fe4ad

@@ -8,17 +8,19 @@ Update the path in your PythonAnywhere web configuration to point to this file.
 import sys
 import os
 
-# Add your project directory to the sys.path
-project_home = '/home/yourusername/zetsuserv'  # UPDATE THIS with your PythonAnywhere username
+# Add the project directory to the Python path
+project_home = os.path.dirname(os.path.abspath(__file__))
 if project_home not in sys.path:
     sys.path.insert(0, project_home)
 
-# Set environment variable for Flask
+# CRITICAL: Load environment variables from .env file BEFORE creating the app
+from dotenv import load_dotenv
+dotenv_path = os.path.join(project_home, '.env')
+load_dotenv(dotenv_path)
+
+# Set Flask environment
 os.environ['FLASK_ENV'] = 'production'
 
-# Import your application
-from app import application
-
-# Ensure the application context is available
-if __name__ == "__main__":
-    application.run()
+# Import and create the Flask application instance
+from zetsu import create_app
+application = create_app(os.getenv('FLASK_ENV', 'production'))

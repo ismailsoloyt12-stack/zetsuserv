@@ -34,7 +34,7 @@ def save_uploaded_file(file):
         file.save(file_path)
         
         # Return relative path for storage
-        return f'uploads/{filename}'
+        return os.path.join('uploads', filename)
     return None
 
 @public_bp.route('/')
@@ -161,7 +161,9 @@ def request_service():
                 except Exception as e:
                     current_app.logger.warning(f'Failed to send activation email: {e}')
                 
-                flash(f'Hey Champ! You\'re first! Your tracking code is: {tracking_code}', 'success')
+                # Fix f-string with backslash issue
+                message = f"Hey Champ! You're first! Your tracking code is: {tracking_code}"
+                flash(message, 'success')
             else:
                 flash(f'Your request has been submitted successfully! You are #{ queue_pos - (active_count if active_count > 0 else 0)} in the queue.', 'info')
             
@@ -707,7 +709,7 @@ def chatbot_submit_order():
                 'order_id': new_request.id,
                 'queue_position': 0,  # Active
                 'is_active': True,
-                'message': 'Great news! You\'re first in queue - work begins immediately!'
+                'message': "Great news! You're first in queue - work begins immediately!"
             })
         else:
             # IN QUEUE - Must wait for others
@@ -728,7 +730,7 @@ def chatbot_submit_order():
                 'queue_position': orders_ahead + 1,
                 'is_active': False,
                 'orders_ahead': orders_ahead,
-                'message': f'Order submitted! You are #{orders_ahead + 1} in queue. You\'ll receive an email with tracking code when it\'s your turn.'
+                'message': f"Order submitted! You are #{orders_ahead + 1} in queue. You'll receive an email with tracking code when it's your turn."
             })
         
     except Exception as e:
@@ -863,7 +865,7 @@ def upload_avatar():
         file.save(file_path)
         
         # Update user's avatar URL (relative path for serving)
-        current_user.avatar_url = f'/static/uploads/avatars/{filename}'
+        current_user.avatar_url = '/static/uploads/avatars/' + filename
         db.session.commit()
         
         return jsonify({
@@ -936,7 +938,7 @@ def ai_assistant():
     # Default responses for fallback - enhanced with queue rules
     default_responses = [
         f"I understand you're asking about your order. {queue_info if queue_info else queue_explanation} Remember: If others ordered before you, you must wait your turn. It's only fair!",
-        f"Thank you for your inquiry! {queue_info if queue_info else 'Here\'s how it works:'} When someone submits an order before you, you wait in queue. First come, first served - no exceptions!",
+        f"Thank you for your inquiry! {queue_info if queue_info else 'Here is how it works:'} When someone submits an order before you, you wait in queue. First come, first served - no exceptions!",
         f"Let me explain the waiting: {queue_info if queue_info else queue_explanation} New customers who order after someone else ALWAYS wait their turn. The person who ordered first gets served first.",
         f"About why you're waiting: {queue_info if queue_info else 'Simple rule:'} Someone ordered before you = you wait for them to finish. That's our fair queue system!",
         f"Regarding the queue: {queue_info if queue_info else queue_explanation} Every new order waits for ALL previous orders. This ensures fairness and quality for everyone."
