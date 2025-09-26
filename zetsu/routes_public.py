@@ -165,7 +165,8 @@ def request_service():
                 message = f"Hey Champ! You're first! Your tracking code is: {tracking_code}"
                 flash(message, 'success')
             else:
-                flash(f'Your request has been submitted successfully! You are #{ queue_pos - (active_count if active_count > 0 else 0)} in the queue.', 'info')
+                position_in_queue = queue_pos - (active_count if active_count > 0 else 0)
+                flash(f"Your request has been submitted successfully! You are #{position_in_queue} in the queue.", 'info')
             
             return redirect(url_for('public.queue_status', request_id=new_request.id))
             
@@ -991,7 +992,8 @@ def ai_assistant():
                         Request.queue_position < request_obj.queue_position
                     ).count()
                     if ahead > 0:
-                        waiting_reason = f"\n                    - WHY WAITING: {ahead} customer{'s' if ahead != 1 else ''} submitted before this customer - they must wait their turn!"
+                        customer_text = 'customers' if ahead != 1 else 'customer'
+                        waiting_reason = f"\n                    - WHY WAITING: {ahead} {customer_text} submitted before this customer - they must wait their turn!"
                 
                 context += f"""
                 Order details:
@@ -1017,7 +1019,8 @@ def ai_assistant():
                         Request.queue_position < request_obj.queue_position
                     ).count()
                     if ahead > 0:
-                        response += f"\n\n⏳ **Why you're waiting:** {ahead} customer{'s' if ahead != 1 else ''} ordered before you. In a queue, everyone who comes later must wait for those who came first. You'll get an email with tracking code when it's your turn!"
+                        customer_text = 'customers' if ahead != 1 else 'customer'
+                        response += f"\n\n⏳ **Why you're waiting:** {ahead} {customer_text} ordered before you. In a queue, everyone who comes later must wait for those who came first. You'll get an email with tracking code when it's your turn!"
                     else:
                         response += "\n\n🎯 **Good news:** You're next in line! Your order will be activated very soon. Watch your email!"
                 elif request_obj.queue_position == 0 or request_obj.queue_position is None:
@@ -1437,7 +1440,7 @@ def user_register():
         # Set session state for verification page
         session['pending_verify_user_id'] = user.id
         
-        flash('We\'ve sent a 6-digit verification code to your email. Please verify to complete registration.', 'info')
+        flash('We have sent a 6-digit verification code to your email. Please verify to complete registration.', 'info')
         return redirect(url_for('public.verify_email'))
     
     return render_template('user_register.html', form=form)
@@ -1472,7 +1475,7 @@ def user_login():
                 except Exception as e:
                     current_app.logger.warning(f'Failed to (re)send verification code: {e}')
                 session['pending_verify_user_id'] = user.id
-                flash('Please verify your email to continue. We\'ve sent you a verification code.', 'warning')
+                flash('Please verify your email to continue. We have sent you a verification code.', 'warning')
                 return redirect(url_for('public.verify_email'))
             
             login_user(user, remember=form.remember_me.data)

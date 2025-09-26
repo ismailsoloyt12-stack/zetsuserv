@@ -78,21 +78,31 @@ python -c "import secrets; print(secrets.token_hex(32))"
 
 ## Step 4: Initialize Database
 
+**CRITICAL: This step MUST be done or you'll get 500 errors!**
+
 ```bash
 cd ~/zetsuserv
 source venv/bin/activate
 
-# Initialize migrations
+# Method 1: Use the initialization script (RECOMMENDED)
+python init_database.py
+
+# Method 2: Use Flask-Migrate (if Method 1 fails)
 flask db init
-
-# Create migration
 flask db migrate -m "Initial migration"
-
-# Apply migration
 flask db upgrade
 
-# Create admin user
+# Create admin user (REQUIRED)
 flask create-admin
+```
+
+**Verify tables were created:**
+```bash
+# For MySQL
+mysql -u YOURUSERNAME -p 'YOURUSERNAME$zetsuserv' -e "SHOW TABLES;"
+
+# For SQLite
+sqlite3 ~/zetsuserv/instance/zetsuserv.db ".tables"
 ```
 
 ---
