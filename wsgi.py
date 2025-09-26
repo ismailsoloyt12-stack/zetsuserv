@@ -1,10 +1,3 @@
-"""
-WSGI configuration for PythonAnywhere deployment.
-
-This file is used by PythonAnywhere to serve your Flask application.
-Update the path in your PythonAnywhere web configuration to point to this file.
-"""
-
 import sys
 import os
 
@@ -17,9 +10,6 @@ if project_home not in sys.path:
 from dotenv import load_dotenv
 dotenv_path = os.path.join(project_home, '.env')
 load_dotenv(dotenv_path)
-
-# Set Flask environment
-os.environ['FLASK_ENV'] = 'production'
 
 # Import and create the Flask application instance
 from zetsu import create_app

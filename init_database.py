@@ -1,30 +1,64 @@
 #!/usr/bin/env python
 """
-Database initialization script for PythonAnywhere deployment.
-Run this after setting up your .env file to create all database tables.
+Database Initialization Script for ZetsuServ
+This script initializes the database with all required tables.
+Run this after configuring your .env file on a new server.
 """
 
 import os
 import sys
 from pathlib import Path
 
-# Add project to path
+# Ensure we're in the correct directory
 project_home = Path(__file__).resolve().parent
+os.chdir(project_home)
 sys.path.insert(0, str(project_home))
 
-# Load environment variables
+print("="*60)
+print("ZETSUSERV DATABASE INITIALIZATION")
+print("="*60)
+print()
+
+# Step 1: Load environment variables
+print("Step 1: Loading environment variables...")
 from dotenv import load_dotenv
+
 env_path = project_home / '.env'
-if env_path.exists():
-    load_dotenv(env_path)
-    print(f"✓ Loaded environment from: {env_path}")
-else:
-    print(f"ERROR: No .env file found at {env_path}")
-    print("Please create your .env file first!")
+if not env_path.exists():
+    print(f"❌ ERROR: No .env file found at {env_path}")
+    print("\nPlease create a .env file with your configuration.")
+    print("You can copy .env.production as a template:")
+    print("  cp .env.production .env")
+    print("Then edit .env with your actual values.")
     sys.exit(1)
 
-# Set Flask environment
+load_dotenv(env_path)
+print(f"✅ Loaded environment from: {env_path}")
+
+# Step 2: Verify critical environment variables
+print("\nStep 2: Verifying environment variables...")
+required_vars = ['SECRET_KEY', 'DATABASE_URL']
+missing_vars = []
+
+for var in required_vars:
+    if not os.getenv(var):
+        missing_vars.append(var)
+
+if missing_vars:
+    print(f"❌ ERROR: Missing required environment variables: {', '.join(missing_vars)}")
+    print("\nPlease set these in your .env file:")
+    for var in missing_vars:
+        if var == 'SECRET_KEY':
+            print(f"  {var}=<generate with: python -c \"import secrets; print(secrets.token_hex(32))\">")
+        elif var == 'DATABASE_URL':
+            print(f"  {var}=<your database connection string>")
+    sys.exit(1)
+
+print("✅ All required environment variables are set")
+
+# Step 3: Set Flask environment
 os.environ['FLASK_ENV'] = os.getenv('FLASK_ENV', 'production')
+print(f"\nStep 3: Flask environment set to: {os.environ['FLASK_ENV']}")
 
 # Import Flask app and database
 from zetsu import create_app, db

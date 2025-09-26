@@ -60,6 +60,10 @@ def create_app(config_name='default'):
     app.register_blueprint(public_bp)
     app.register_blueprint(admin_bp)
     
+    # Register CLI commands blueprint
+    from zetsu import commands
+    app.register_blueprint(commands.bp)
+    
     # Import models to ensure they are registered with SQLAlchemy
     from zetsu import models
     
